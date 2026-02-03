@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>모의주식 로그인</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Apple SD Gothic Neo,Noto Sans KR,sans-serif;margin:0;background:#0b0f14;color:#eaf0f7}
+    .wrap{max-width:520px;margin:60px auto;padding:0 16px}
+    .card{background:#121923;border:1px solid #1e2a3a;border-radius:14px;padding:18px}
+    label{display:block;margin:12px 0 6px;color:#93a4b8;font-size:12px}
+    input{width:100%;height:42px;border-radius:10px;border:1px solid #1e2a3a;background:#0e141d;color:#eaf0f7;padding:0 12px;outline:none}
+    button{margin-top:12px;height:42px;border-radius:10px;border:0;background:#2b7cff;color:#fff;font-weight:800;cursor:pointer;width:100%}
+    .muted{color:#93a4b8;font-size:13px;line-height:1.5}
+    .msg{margin-top:10px;color:#ffd479;font-size:13px;white-space:pre-wrap}
+    .row{display:flex;gap:10px;margin-top:10px}
+    .btn2{background:transparent;border:1px solid #2b7cff;color:#bcd6ff}
+    .kv{margin-top:12px;padding:12px;border:1px solid #1e2a3a;border-radius:12px;background:#0e141d}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2 style="margin:0 0 6px">로그인</h2>
+      <div class="muted">Firebase 이메일/비밀번호로 로그인합니다.</div>
+
+      <label>이메일</label>
+      <input id="email" type="email" placeholder="test01@test.com" />
+
+      <label>비밀번호</label>
+      <input id="pw" type="password" placeholder="123456" />
+
+      <button id="loginBtn">로그인</button>
+      <div class="row">
+        <button id="logoutBtn" class="btn2" style="width:50%;display:none">로그아웃</button>
+        <button id="whoBtn" class="btn2" style="width:50%;display:none">내 자산 보기</button>
+      </div>
+
+      <div id="msg" class="msg"></div>
+
+      <div id="me" class="kv" style="display:none"></div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
