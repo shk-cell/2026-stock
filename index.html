@@ -15,7 +15,21 @@
     label { display: block; margin-top: 16px; font-size: 12px; color: var(--pri); font-weight: 600; text-transform: uppercase; }
     input { width: 100%; height: 48px; margin-top: 6px; border-radius: 12px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 16px; outline: none; }
     .btn { width: 100%; height: 48px; margin-top: 24px; border-radius: 12px; border: 0; background: var(--pri); color: white; font-weight: 700; cursor: pointer; }
-    .btn-outline { background: transparent; border: 1px solid var(--line); height: 36px; padding: 0 12px; font-size: 13px; margin-top: 0; border-radius: 8px; }
+    
+    /* 매도 버튼 스타일 강화 */
+    .btn-outline { 
+      background: var(--pri); /* 파란색 배경으로 변경 */
+      border: 1px solid var(--pri); 
+      height: 32px; 
+      padding: 0 12px; 
+      font-size: 12px; 
+      font-weight: 700;
+      color: white; /* 흰색 글씨 */
+      border-radius: 8px; 
+      cursor: pointer;
+    }
+    .btn-outline:hover { opacity: 0.8; }
+
     .hidden { display: none !important; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
     .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
@@ -23,8 +37,7 @@
     .stat-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
     .search-box { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
     #qOut { margin-top: 12px; font-weight: 600; color: var(--pri); min-height: 24px; }
-    .portfolio-item { background: #1e2a3a; padding: 12px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; transition: border-color 0.2s; }
-    .portfolio-item:hover { border-color: var(--line); }
+    .portfolio-item { background: #1e2a3a; padding: 16px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
@@ -47,7 +60,7 @@
             <h1>Dashboard</h1>
             <div id="userEmail" style="font-size: 12px; color: var(--muted); background: #1e2a3a; padding: 4px 10px; border-radius: 20px;"></div>
           </div>
-          <button id="logoutBtn" class="btn btn-outline" style="width: auto;">로그아웃</button>
+          <button id="logoutBtn" class="btn-outline" style="background:transparent; color:var(--muted); border-color:var(--line);">로그아웃</button>
         </div>
         <div class="stat-grid">
           <div class="stat-card">
