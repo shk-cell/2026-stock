@@ -58,24 +58,35 @@ async function fetchQuote() {
   } catch { o.textContent = "네트워크 에러"; }
 }
 
-// 주식 매수 함수
+// 주식 매수 함수 (팝업 수량 입력 방식 적용)
 async function buyStock() {
   const user = auth.currentUser;
-  const qty = parseInt($("qQty").value);
-  if (!user || !currentSymbol || currentStockPrice <= 0 || isNaN(qty) || qty <= 0) {
-    alert("종목을 먼저 조회하고 수량을 확인하세요.");
+  
+  if (!user || !currentSymbol || currentStockPrice <= 0) {
+    alert("종목을 먼저 조회해 주세요.");
     return;
   }
+
+  // 팝업으로 수량 입력받기
+  const inputQty = prompt(`${currentSymbol}을 몇 주 매수하시겠습니까?\n(현재가: ${money(currentStockPrice)})`, "1");
+  const qty = parseInt(inputQty);
+
+  if (isNaN(qty) || qty <= 0) {
+    if (inputQty !== null) alert("올바른 수량을 입력해 주세요.");
+    return;
+  }
+
   const totalCost = currentStockPrice * qty;
   const userRef = doc(db, "users", user.email);
   const stockRef = doc(db, "users", user.email, "portfolio", currentSymbol);
 
   try {
     await runTransaction(db, async (t) => {
-      // 모든 읽기(get)를 먼저 수행하여 에러 방지
+      // 모든 읽기를 먼저 수행 (Firestore Transaction 규칙)
       const uSnap = await t.get(userRef);
       const sSnap = await t.get(stockRef); 
       const cash = uSnap.data().cash;
+
       if (cash < totalCost) throw "가용 자산이 부족합니다!";
       
       t.update(userRef, { cash: cash - totalCost });
@@ -85,7 +96,7 @@ async function buyStock() {
         t.set(stockRef, { symbol: currentSymbol, qty: qty, updatedAt: serverTimestamp() });
       }
     });
-    alert("매수 완료!");
+    alert(`${currentSymbol} ${qty}주 매수 완료!`);
     await updateAssets(user);
   } catch (e) { alert(e); }
 }
@@ -93,10 +104,12 @@ async function buyStock() {
 // 주식 매도 함수
 async function sellStock() {
   const user = auth.currentUser;
-  const qty = parseInt($("qQty").value);
+  const qtyInput = $("qQty") ? $("qQty").value : "0"; // qQty가 없을 경우 대비
+  const qty = parseInt(qtyInput);
   const symbol = $("qSymbol").value.trim().toUpperCase();
+
   if (!user || !symbol || currentStockPrice <= 0 || isNaN(qty) || qty <= 0) {
-    alert("매도 정보를 확인하세요 (조회 필요).");
+    alert("매도 정보를 확인하세요.");
     return;
   }
   const userRef = doc(db, "users", user.email);
@@ -119,7 +132,7 @@ async function sellStock() {
   } catch (e) { alert(e); }
 }
 
-// 자산 및 포트폴리오 업데이트 (현재가 표시 및 목록 내 매도 버튼)
+// 자산 정보 업데이트 및 포트폴리오 출력
 async function updateAssets(user) {
   try {
     const userRef = doc(db, "users", user.email);
@@ -157,23 +170,29 @@ async function updateAssets(user) {
               <b style="color:#fff; display:block;">${item.qty}주</b>
               <small style="color:var(--warn);">평가액: ${money(livePrice * item.qty)}</small>
             </div>
-            <button class="btn-outline" onclick="window.quickSell('${item.symbol}')">매도</button>
+            <button class="btn-outline" style="border-color:var(--pri); color:var(--pri); cursor:pointer;" 
+              onclick="window.quickSell('${item.symbol}')">매도</button>
           </div>
         </div>`;
     }
     $("portfolioList").innerHTML = listHtml || '<div class="muted" style="text-align:center;">보유 주식 없음</div>';
-    $("totalAssetsText").textContent = money(cash + totalStockValue);
+    $("totalAssetsText").textContent = money(cash + totalStockValue); 
   } catch (e) { console.error(e); }
 }
 
-// 목록에서 매도 버튼 클릭 시 처리
+// 목록에서 매도 버튼 클릭 시 처리 (수량 입력 팝업)
 window.quickSell = async (symbol) => {
   $("qSymbol").value = symbol;
   await fetchQuote();
   const q = prompt(`${symbol}을 몇 주 매도하시겠습니까?`, "1");
   if (q && parseInt(q) > 0) {
-    $("qQty").value = q;
+    // 임시 수량 전달용 (sellStock 함수 호환 유지)
+    const dummyQty = document.createElement("input");
+    dummyQty.id = "qQty";
+    dummyQty.value = q;
+    document.body.appendChild(dummyQty);
     await sellStock();
+    document.body.removeChild(dummyQty);
   }
 };
 
@@ -204,6 +223,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("logoutBtn").onclick = () => { currentView = null; signOut(auth); };
   $("qBtn").onclick = fetchQuote;
   $("buyBtn").onclick = buyStock;
-  // 상단 매도 버튼(sellBtn) 이벤트 연결은 제거되었습니다.
+  // sellBtn은 HTML에서 제거되었으므로 연결 제외
   $("pw").onkeydown = (e) => e.key === "Enter" && login();
 });
