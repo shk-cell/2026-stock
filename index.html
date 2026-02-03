@@ -1,59 +1,97 @@
+
 <!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>모의 주식 투자 로그인</title>
+  <title>모의 주식 투자</title>
   <style>
-    body {
-      font-family: system-ui, Apple SD Gothic Neo, Noto Sans KR, sans-serif;
-      background:#0b0f14; color:#eaf0f7;
+    :root{
+      --bg:#0b0f14; --card:#121923; --line:#1e2a3a; --muted:#93a4b8; --txt:#eaf0f7;
+      --pri:#2b7cff; --warn:#ffd479;
     }
-    .box {
-      max-width:420px; margin:80px auto; padding:20px;
-      background:#121923; border-radius:12px;
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:var(--bg);color:var(--txt)}
+    .wrap{max-width:520px;margin:70px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+    h1{margin:0 0 14px;font-size:22px;letter-spacing:-.2px}
+    .muted{color:var(--muted);font-size:13px;line-height:1.5}
+    label{display:block;margin-top:12px;font-size:12px;color:var(--muted)}
+    input{
+      width:100%;height:44px;margin-top:6px;border-radius:10px;border:1px solid var(--line);
+      background:#0e141d;color:var(--txt);padding:0 12px;outline:none;
     }
-    label {
-      display:block; margin-top:12px;
-      font-size:13px; color:#93a4b8;
+    input:focus{border-color:var(--pri)}
+    .btn{
+      height:44px;border-radius:10px;border:1px solid transparent;background:var(--pri);color:white;
+      font-weight:800;cursor:pointer;padding:0 14px;
     }
-    input {
-      width:100%; height:42px; margin-top:6px;
-      border-radius:8px; border:1px solid #1e2a3a;
-      background:#0e141d; color:white; padding:0 10px;
+    .btn:hover{filter:brightness(1.05)}
+    .btn-outline{background:transparent;border-color:var(--pri);color:#bcd6ff}
+    .row{display:flex;gap:10px;margin-top:14px}
+    .row .btn{flex:1}
+    .msg{margin-top:12px;font-size:13px;color:var(--warn);white-space:pre-wrap}
+    .hidden{display:none}
+
+    /* dashboard */
+    .topline{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .pill{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:12px}
+    .stat{
+      margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#0e141d
     }
-    button {
-      margin-top:16px; width:100%; height:44px;
-      border-radius:8px; border:0;
-      background:#2b7cff; color:white;
-      font-weight:700; cursor:pointer;
-    }
-    .logout { background:#444; }
-    .msg {
-      margin-top:12px; font-size:13px;
-      color:#ffd479; white-space:pre-wrap;
-    }
-    .asset {
-      margin-top:16px; padding:12px;
-      background:#0e141d; border-radius:8px;
-    }
+    .stat .k{color:var(--muted);font-size:12px}
+    .stat .v{margin-top:6px;font-size:22px;font-weight:900}
+    .hr{border:none;border-top:1px solid var(--line);margin:14px 0}
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>로그인</h2>
+  <div class="wrap">
+    <div class="card">
 
-    <label>이메일</label>
-    <input id="email" placeholder="test01@test.com" />
+      <!-- ✅ 로그인 전 섹션 -->
+      <section id="authView">
+        <h1>로그인</h1>
+        <div class="muted">이메일/비밀번호로 로그인합니다.</div>
 
-    <label>비밀번호</label>
-    <input id="pw" type="password" placeholder="123456" />
+        <label>이메일</label>
+        <input id="email" type="email" placeholder="test01@test.com" />
 
-    <button id="loginBtn">로그인</button>
-    <button id="logoutBtn" class="logout" style="display:none">로그아웃</button>
+        <label>비밀번호</label>
+        <input id="pw" type="password" placeholder="123456" />
 
-    <div id="msg" class="msg"></div>
-    <div id="asset" class="asset" style="display:none"></div>
+        <div class="row">
+          <button id="loginBtn" class="btn">로그인</button>
+        </div>
+
+        <div id="authMsg" class="msg"></div>
+      </section>
+
+      <!-- ✅ 로그인 후 섹션 -->
+      <section id="dashView" class="hidden">
+        <div class="topline">
+          <div>
+            <h1 style="margin:0">대시보드</h1>
+            <div id="userEmail" class="pill">-</div>
+          </div>
+          <button id="logoutBtn" class="btn btn-outline" style="flex:0 0 auto">로그아웃</button>
+        </div>
+
+        <div id="dashMsg" class="msg"></div>
+
+        <div class="stat">
+          <div class="k">현재 금액</div>
+          <div id="cashText" class="v">-</div>
+          <div class="muted" style="margin-top:6px">첫 로그인 시 70,000달러가 지급됩니다.</div>
+        </div>
+
+        <hr class="hr" />
+
+        <div class="muted">
+          다음 단계에서 매수/매도, 보유 종목, 거래기록을 여기에 붙이면 됩니다.
+        </div>
+      </section>
+
+    </div>
   </div>
 
   <script type="module" src="./app.js"></script>
