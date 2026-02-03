@@ -16,20 +16,21 @@
     input { width: 100%; height: 48px; margin-top: 6px; border-radius: 12px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 16px; outline: none; }
     .btn { width: 100%; height: 48px; margin-top: 24px; border-radius: 12px; border: 0; background: var(--pri); color: white; font-weight: 700; cursor: pointer; }
     
-    /* 매도 버튼 스타일 강화 */
-    .btn-outline { 
-      background: var(--pri); /* 파란색 배경으로 변경 */
-      border: 1px solid var(--pri); 
+    /* 매도 버튼 스타일: 강제로 색상과 크기 지정 */
+    .btn-sell { 
+      background: var(--pri) !important; 
+      color: white !important; 
+      border: none !important;
       height: 32px; 
-      padding: 0 12px; 
-      font-size: 12px; 
-      font-weight: 700;
-      color: white; /* 흰색 글씨 */
+      padding: 0 14px; 
+      font-size: 13px; 
+      font-weight: 800;
       border-radius: 8px; 
       cursor: pointer;
+      min-width: 60px;
     }
-    .btn-outline:hover { opacity: 0.8; }
-
+    
+    .btn-outline { background: transparent; border: 1px solid var(--line); height: 36px; padding: 0 12px; font-size: 13px; margin-top: 0; border-radius: 8px; color: var(--muted); cursor: pointer; }
     .hidden { display: none !important; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
     .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
@@ -60,7 +61,7 @@
             <h1>Dashboard</h1>
             <div id="userEmail" style="font-size: 12px; color: var(--muted); background: #1e2a3a; padding: 4px 10px; border-radius: 20px;"></div>
           </div>
-          <button id="logoutBtn" class="btn-outline" style="background:transparent; color:var(--muted); border-color:var(--line);">로그아웃</button>
+          <button id="logoutBtn" class="btn-outline">로그아웃</button>
         </div>
         <div class="stat-grid">
           <div class="stat-card">
@@ -72,11 +73,11 @@
             <div id="totalAssetsText" class="stat-value">$0.00</div>
           </div>
         </div>
-       <label>주식 조회 및 매수</label>
+        <label>주식 조회 및 매수</label>
         <div class="search-box">
-          <input id="qSymbol" placeholder="종목명 입력 (예: TSLA)" style="flex: 1;" />
-          <button id="qBtn" class="btn" style="width: 80px; margin-top: 0; background: #555; padding:0;">조회</button>
-          <button id="buyBtn" class="btn" style="width: 80px; margin-top: 0; background: #e24a4a; padding:0;">매수</button>
+          <input id="qSymbol" placeholder="종목명 (예: TSLA)" style="flex: 1;" />
+          <button id="qBtn" class="btn" style="width: 70px; margin-top: 0; background: #555; padding:0;">조회</button>
+          <button id="buyBtn" class="btn" style="width: 70px; margin-top: 0; background: #e24a4a; padding:0;">매수</button>
         </div>
         <div id="qOut">-</div>
         <label style="margin-top: 24px;">내 포트폴리오 (보유 주식)</label>
