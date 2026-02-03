@@ -30,6 +30,39 @@ function show(el, on) {
   on ? el.classList.remove("hidden") : el.classList.add("hidden");
 }
 
+function wireEvents() {
+  // 로그인/로그아웃
+  $("loginBtn").onclick = login;
+  $("logoutBtn").onclick = () => { 
+    currentView = null; 
+    signOut(auth); 
+  };
+
+  // 주가 조회 버튼 (클릭 이벤트 직접 할당)
+  const qBtn = $("qBtn");
+  if (qBtn) {
+    qBtn.onclick = async () => {
+      console.log("조회 버튼 클릭됨"); // 디버깅용
+      await fetchQuote();
+    };
+  }
+
+  // 매수 버튼
+  const buyBtn = $("buyBtn");
+  if (buyBtn) {
+    buyBtn.onclick = buyStock;
+  }
+
+  // 엔터 키 대응
+  $("qSymbol").onkeydown = (e) => {
+    if (e.key === "Enter") fetchQuote();
+  };
+  
+  $("pw").onkeydown = (e) => {
+    if (e.key === "Enter") login();
+  };
+}
+
 async function fetchQuote() {
   const o = $("qOut");
   const s = $("qSymbol").value.trim().toUpperCase();
