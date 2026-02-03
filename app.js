@@ -84,4 +84,35 @@ async function loadCash(user) {
 /* ---------- 이벤트 ---------- */
 loginBtn.onclick = async () => {
   try {
-    authMsg.te
+    authMsg.textContent = "";
+    await signInWithEmailAndPassword(
+      auth,
+      emailEl.value.trim(),
+      pwEl.value
+    );
+  } catch (e) {
+    authMsg.textContent = "로그인 실패: " + e.code;
+  }
+};
+
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+};
+
+/* ---------- 인증 상태 ---------- */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    showGuest();
+    authMsg.textContent = "로그인 해 주세요.";
+    return;
+  }
+
+  showAuthed(user);
+
+  const result = await ensureUserDoc(user);
+  await loadCash(user);
+
+  dashMsg.textContent = result.created
+    ? "첫 로그인이라 70,000달러가 지급되었습니다."
+    : "";
+});
