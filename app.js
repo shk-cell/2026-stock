@@ -1,11 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { 
-  getFirestore, doc, getDoc, setDoc, runTransaction, 
-  serverTimestamp, collection, getDocs 
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { 
-  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, runTransaction, serverTimestamp, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
@@ -22,159 +17,161 @@ const auth = getAuth(app);
 
 const START_CASH = 70000;
 const QUOTE_ENDPOINT = "https://quote-ymhlxyctxq-uc.a.run.app"; 
-
-let currentStockPrice = 0;
-let currentSymbol = "";
-let currentView = null;
-
 const $ = (id) => document.getElementById(id);
 const money = (v) => `$${Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-function show(el, on) {
-  if (!el) return;
-  on ? el.classList.remove("hidden") : el.classList.add("hidden");
+let currentStockPrice = 0;
+let currentSymbol = "";
+let lastRefreshTime = 0; // 시세 갱신 시간 저장
+
+// 버튼 상태 및 유효시간 체크 함수
+function updateTradeButtonStatus() {
+  const now = Date.now();
+  const ONE_HOUR = 60 * 60 * 1000;
+  const isFresh = (now - lastRefreshTime) < ONE_HOUR;
+
+  const btns = document.querySelectorAll('#buyBtn, .btn-sell');
+  btns.forEach(btn => btn.disabled = !isFresh);
+
+  if (!isFresh) {
+    $("expireMsg").textContent = "⚠️ 시세가 만료되었습니다. 다시 갱신해주세요.";
+    $("expireMsg").style.color = "var(--warn)";
+  } else {
+    const minLeft = Math.ceil((ONE_HOUR - (now - lastRefreshTime)) / 60000);
+    $("expireMsg").textContent = `시세 유효함 (남은 시간: 약 ${minLeft}분)`;
+    $("expireMsg").style.color = "var(--muted)";
+  }
 }
 
 async function fetchQuote() {
-  const o = $("qOut");
   const s = $("qSymbol").value.trim().toUpperCase();
   if (!s) return;
-  o.textContent = "조회중...";
+  $("qOut").textContent = "조회중...";
   try {
     const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
     const d = await r.json();
     if (d.ok) {
       currentSymbol = d.symbol;
       currentStockPrice = d.price;
-      o.innerHTML = `<b style="color:#2b7cff;">${d.symbol}</b>: ${money(d.price)} <small style="color:#93a4b8;">(조회됨)</small>`;
-    } else { o.textContent = "조회 실패: 없는 종목"; }
-  } catch { o.textContent = "네트워크 에러"; }
+      $("qOut").innerHTML = `<b style="color:var(--pri);">${d.symbol}</b>: ${money(d.price)}`;
+    } else { $("qOut").textContent = "없는 종목입니다."; }
+  } catch { $("qOut").textContent = "조회 실패"; }
 }
 
-async function buyStock() {
+async function refreshEverything() {
   const user = auth.currentUser;
-  if (!user || !currentSymbol || currentStockPrice <= 0) {
-    alert("종목을 먼저 조회해 주세요.");
-    return;
-  }
-  const inputQty = prompt(`${currentSymbol}을 몇 주 매수하시겠습니까?\n(현재가: ${money(currentStockPrice)})`, "1");
-  const qty = parseInt(inputQty);
-  if (isNaN(qty) || qty <= 0) return;
-
-  const totalCost = currentStockPrice * qty;
-  const userRef = doc(db, "users", user.email);
-  const stockRef = doc(db, "users", user.email, "portfolio", currentSymbol);
-
-  try {
-    await runTransaction(db, async (t) => {
-      const uSnap = await t.get(userRef);
-      const sSnap = await t.get(stockRef);
-      const cash = uSnap.data().cash;
-      if (cash < totalCost) throw "가용 자산이 부족합니다!";
-      t.update(userRef, { cash: cash - totalCost });
-      if (sSnap.exists()) t.update(stockRef, { qty: sSnap.data().qty + qty, updatedAt: serverTimestamp() });
-      else t.set(stockRef, { symbol: currentSymbol, qty: qty, updatedAt: serverTimestamp() });
-    });
-    alert("매수 완료!");
-    await updateAssets(user);
-  } catch (e) { alert(e); }
-}
-
-async function sellStock(symbol, sellQty) {
-  const user = auth.currentUser;
-  const userRef = doc(db, "users", user.email);
-  const stockRef = doc(db, "users", user.email, "portfolio", symbol);
-
-  try {
-    await runTransaction(db, async (t) => {
-      const uSnap = await t.get(userRef);
-      const sSnap = await t.get(stockRef);
-      if (!sSnap.exists() || sSnap.data().qty < sellQty) throw "보유 수량이 부족합니다!";
-      const cash = uSnap.data().cash;
-      const totalGain = currentStockPrice * sellQty;
-      t.update(userRef, { cash: cash + totalGain });
-      if (sSnap.data().qty === sellQty) t.delete(stockRef);
-      else t.update(stockRef, { qty: sSnap.data().qty - sellQty });
-    });
-    alert("매도 완료!");
-    await updateAssets(user);
-  } catch (e) { alert(e); }
-}
-
-async function updateAssets(user) {
+  if (!user) return;
+  
+  $("globalRefreshBtn").textContent = "갱신 중...";
   try {
     const userRef = doc(db, "users", user.email);
     const snap = await getDoc(userRef);
     if (!snap.exists()) {
       await setDoc(userRef, { cash: START_CASH });
       $("cashText").textContent = money(START_CASH);
-      return;
+    } else {
+      $("cashText").textContent = money(snap.data().cash);
     }
-    const cash = snap.data().cash;
-    $("cashText").textContent = money(cash);
 
     const portSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
     let listHtml = "";
-    let totalStockValue = 0;
+    let totalValue = 0;
 
     for (const d of portSnap.docs) {
       const item = d.data();
-      let livePrice = 0;
+      let price = 0;
       try {
         const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(item.symbol)}`);
         const res = await r.json();
-        if (res.ok) livePrice = res.price;
+        if (res.ok) price = res.price;
       } catch {}
-      totalStockValue += (livePrice * item.qty);
+      totalValue += (price * item.qty);
       listHtml += `
         <div class="portfolio-item">
-          <div style="display:flex; flex-direction:column;">
-            <span style="font-weight:bold; color:var(--pri);">${item.symbol}</span>
-            <small style="color:var(--muted);">현재가: ${money(livePrice)}</small>
-          </div>
-          <div style="display:flex; align-items:center; gap:12px;">
-            <div style="text-align:right;">
-              <b style="color:#fff; display:block;">${item.qty}주</b>
-              <small style="color:var(--warn);">평가액: ${money(livePrice * item.qty)}</small>
-            </div>
-            <button class="btn-sell" onclick="window.quickSell('${item.symbol}')">매도</button>
+          <div><b style="color:var(--pri);">${item.symbol}</b><br><small>현재가: ${money(price)}</small></div>
+          <div style="display:flex; align-items:center; gap:15px;">
+            <div style="text-align:right;"><b style="color:#fff;">${item.qty}주</b><br><small style="color:var(--warn);">${money(price * item.qty)}</small></div>
+            <button class="btn btn-sell" onclick="window.quickSell('${item.symbol}')">매도</button>
           </div>
         </div>`;
     }
-    $("portfolioList").innerHTML = listHtml || '<div class="muted" style="text-align:center;">보유 주식 없음</div>';
-    $("totalAssetsText").textContent = money(cash + totalStockValue);
+    $("portfolioList").innerHTML = listHtml || '<div style="text-align:center;color:var(--muted);">보유 주식 없음</div>';
+    $("totalAssetsText").textContent = money((snap.data()?.cash || START_CASH) + totalValue);
+    
+    // 성공 시 시간 업데이트 및 버튼 활성화
+    lastRefreshTime = Date.now();
+    updateTradeButtonStatus();
   } catch (e) { console.error(e); }
+  $("globalRefreshBtn").textContent = "시세 갱신 ↻";
 }
 
 window.quickSell = async (symbol) => {
+  // 매도 전 시간 체크
+  updateTradeButtonStatus();
+  if (document.querySelector('.btn-sell').disabled) {
+    alert("시세가 만료되었습니다. 시세 갱신을 먼저 눌러주세요.");
+    return;
+  }
+
   $("qSymbol").value = symbol;
   await fetchQuote();
   const q = prompt(`${symbol}을 몇 주 매도하시겠습니까?`, "1");
-  if (q && parseInt(q) > 0) await sellStock(symbol, parseInt(q));
+  if (q && parseInt(q) > 0) {
+    try {
+      await runTransaction(db, async (t) => {
+        const uRef = doc(db, "users", auth.currentUser.email);
+        const sRef = doc(db, "users", auth.currentUser.email, "portfolio", symbol);
+        const uS = await t.get(uRef); const sS = await t.get(sRef);
+        if (sS.data().qty < q) throw "수량 부족";
+        t.update(uRef, { cash: uS.data().cash + (currentStockPrice * q) });
+        if (sS.data().qty == q) t.delete(sRef); else t.update(sRef, { qty: sS.data().qty - q });
+      });
+      alert("매도 완료"); await refreshEverything();
+    } catch(e) { alert(e); }
+  }
 };
 
-async function login() {
-  const email = $("email").value.trim();
-  const pw = $("pw").value.trim();
-  try { await signInWithEmailAndPassword(auth, email, pw); } 
-  catch { $("authMsg").textContent = "로그인 정보가 틀립니다."; }
-}
-
 onAuthStateChanged(auth, async (user) => {
-  const nextView = user ? "dash" : "auth";
-  if (currentView !== nextView) {
-    currentView = nextView;
-    show($("authView"), !user);
-    show($("dashView"), !!user);
-    if (user) $("userEmail").textContent = user.email;
+  if (user) {
+    $("authView").classList.add("hidden"); $("dashView").classList.remove("hidden");
+    $("userEmail").textContent = user.email;
+    // 첫 접속(로그인) 시 무조건 한 번 시세 갱신
+    await refreshEverything();
+  } else {
+    $("authView").classList.remove("hidden"); $("dashView").classList.add("hidden");
   }
-  if (user) await updateAssets(user);
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  $("loginBtn").onclick = login;
-  $("logoutBtn").onclick = () => { currentView = null; signOut(auth); };
+  $("loginBtn").onclick = () => {
+    signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(() => $("authMsg").textContent = "로그인 실패");
+  };
+  $("logoutBtn").onclick = () => signOut(auth);
   $("qBtn").onclick = fetchQuote;
-  $("buyBtn").onclick = buyStock;
-  $("pw").onkeydown = (e) => e.key === "Enter" && login();
+  $("globalRefreshBtn").onclick = refreshEverything;
+  
+  $("buyBtn").onclick = async () => {
+    updateTradeButtonStatus();
+    if ($("buyBtn").disabled) { alert("시세 갱신을 먼저 해주세요."); return; }
+    
+    const q = prompt(`${currentSymbol} 매수 수량`, "1");
+    if (q && parseInt(q) > 0) {
+      const total = currentStockPrice * q;
+      try {
+        await runTransaction(db, async (t) => {
+          const uRef = doc(db, "users", auth.currentUser.email);
+          const sRef = doc(db, "users", auth.currentUser.email, "portfolio", currentSymbol);
+          const uS = await t.get(uRef); const sS = await t.get(sRef);
+          if (uS.data().cash < total) throw "잔고 부족";
+          t.update(uRef, { cash: uS.data().cash - total });
+          if (sS.exists()) t.update(sRef, { qty: sS.data().qty + parseInt(q) });
+          else t.set(sRef, { symbol: currentSymbol, qty: parseInt(q) });
+        });
+        alert("매수 완료"); await refreshEverything();
+      } catch(e) { alert(e); }
+    }
+  };
+  
+  // 1분마다 유효시간 체크하여 버튼 상태 업데이트
+  setInterval(updateTradeButtonStatus, 60000);
 });
