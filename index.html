@@ -58,16 +58,18 @@
             <div id="totalAssetsText" class="stat-value">$0.00</div>
           </div>
         </div>
-        <label>주식 조회 및 매수</label>
-        <div class="search-box">
-          <input id="qSymbol" placeholder="종목명" style="flex: 2;" />
-          <input id="qQty" type="number" value="1" min="1" style="flex: 1;" />
-          <button id="qBtn" class="btn" style="width: 60px; margin-top: 0; background: #555;">조회</button>
-          <button id="buyBtn" class="btn" style="width: 60px; margin-top: 0; background: #e24a4a;">매수</button>
-        </div>
-        <div id="qOut">-</div>
-        <label style="margin-top: 24px;">보유 주식 목록</label>
-        <div id="portfolioList" style="margin-top: 10px;"></div>
+        <label>실시간 주가 조회 및 매수</label>
+          <div class="search-box">
+            <input id="qSymbol" placeholder="종목 코드" style="margin-top: 0; flex: 2;" />
+            <input id="qQty" type="number" value="1" min="1" style="margin-top: 0; flex: 1; text-align: center;" />
+            <button id="qBtn" class="btn" style="width: 60px; margin-top: 0; background: #555;">조회</button>
+            <button id="buyBtn" class="btn" style="width: 60px; margin-top: 0; background: #e24a4a;">매수</button>
+          </div>
+          <div id="qOut">-</div>
+          
+          <label style="margin-top: 24px;">내 포트폴리오 (보유 주식)</label>
+          <div id="portfolioList" style="margin-top: 10px;">
+            </div>
       </section>
     </div>
   </div>
