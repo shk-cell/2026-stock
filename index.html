@@ -4,174 +4,50 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>모의 주식 투자</title>
-
   <style>
-    :root {
-      --bg: #0b0f14;
-      --card: #121923;
-      --line: #1e2a3a;
-      --muted: #93a4b8;
-      --txt: #eaf0f7;
-      --pri: #2b7cff;
-      --warn: #ffd479;
-    }
-
+    :root { --bg: #0b0f14; --card: #121923; --line: #1e2a3a; --muted: #93a4b8; --txt: #eaf0f7; --pri: #2b7cff; --warn: #ffd479; }
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--txt);
-      line-height: 1.5;
-    }
-
-    .wrap {
-      max-width: 520px;
-      margin: 60px auto;
-      padding: 0 16px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 24px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    }
-
-    h1 { margin: 0 0 8px; font-size: 24px; font-weight: 700; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); }
+    .wrap { max-width: 520px; margin: 60px auto; padding: 0 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    h1 { margin: 0 0 8px; font-size: 24px; }
     .muted { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
-
-    label {
-      display: block;
-      margin-top: 16px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--pri);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    input {
-      width: 100%;
-      height: 48px;
-      margin-top: 6px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      background: #0e141d;
-      color: var(--txt);
-      padding: 0 16px;
-      font-size: 16px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    input:focus { border-color: var(--pri); background: #131b26; }
-
-    .btn {
-      width: 100%;
-      height: 48px;
-      margin-top: 24px;
-      border-radius: 12px;
-      border: 0;
-      background: var(--pri);
-      color: white;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-
-    .btn:hover { opacity: 0.9; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--txt);
-      margin-top: 0;
-      height: 36px;
-      padding: 0 12px;
-      font-size: 13px;
-    }
-
-    .msg {
-      margin-top: 16px;
-      font-size: 13px;
-      color: var(--warn);
-      text-align: center;
-    }
-
+    label { display: block; margin-top: 16px; font-size: 12px; color: var(--pri); font-weight: 600; text-transform: uppercase; }
+    input { width: 100%; height: 48px; margin-top: 6px; border-radius: 12px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 16px; outline: none; }
+    .btn { width: 100%; height: 48px; margin-top: 24px; border-radius: 12px; border: 0; background: var(--pri); color: white; font-weight: 700; cursor: pointer; }
+    .btn-outline { background: transparent; border: 1px solid var(--line); height: 36px; padding: 0 12px; font-size: 13px; margin-top: 0; }
     .hidden { display: none !important; }
-
-    /* 대시보드 그리드 및 목록 스타일 */
-    .stat-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    .stat-card {
-      background: linear-gradient(145deg, #1a222c, #121923);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 16px;
-    }
-
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
     .stat-label { font-size: 12px; color: var(--muted); }
-    .stat-value { font-size: 20px; font-weight: 800; margin-top: 4px; color: #fff; }
-
-    .search-box {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    #qOut {
-      display: block;
-      margin-top: 12px;
-      font-weight: 600;
-      color: var(--pri);
-      min-height: 1.5em;
-    }
-
-    .portfolio-item {
-      background: #1e2a3a;
-      padding: 10px 15px;
-      border-radius: 10px;
-      margin-bottom: 8px;
-      display: flex;
-      justify-content: space-between;
-    }
+    .stat-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+    .search-box { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+    #qOut { margin-top: 12px; font-weight: 600; color: var(--pri); min-height: 24px; }
+    .portfolio-item { background: #1e2a3a; padding: 12px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
-
       <section id="authView">
         <h1>Welcome</h1>
         <div class="muted">계정 정보를 입력하여 접속하세요.</div>
-        <label for="email">Email</label>
+        <label>Email</label>
         <input id="email" type="email" placeholder="test@example.com" />
-        <label for="pw">Password</label>
+        <label>Password</label>
         <input id="pw" type="password" placeholder="••••••••" />
         <button id="loginBtn" class="btn">로그인</button>
-        <div id="authMsg" class="msg"></div>
+        <div id="authMsg" style="text-align:center; color:var(--warn); margin-top:10px;"></div>
       </section>
 
       <section id="dashView" class="hidden">
-        <div class="top" style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
           <div>
             <h1>Dashboard</h1>
             <div id="userEmail" style="font-size: 12px; color: var(--muted); background: #1e2a3a; padding: 4px 10px; border-radius: 20px;"></div>
           </div>
           <button id="logoutBtn" class="btn btn-outline" style="width: auto;">로그아웃</button>
         </div>
-
         <div class="stat-grid">
           <div class="stat-card">
             <div class="stat-label">가용 자산 (Cash)</div>
@@ -182,20 +58,17 @@
             <div id="totalAssetsText" class="stat-value">$0.00</div>
           </div>
         </div>
-
         <label>주식 조회 및 매수</label>
         <div class="search-box">
-          <input id="qSymbol" placeholder="종목명" style="margin-top: 0; flex: 2;" />
-          <input id="qQty" type="number" value="1" min="1" style="margin-top: 0; flex: 1;" />
+          <input id="qSymbol" placeholder="종목명" style="flex: 2;" />
+          <input id="qQty" type="number" value="1" min="1" style="flex: 1;" />
           <button id="qBtn" class="btn" style="width: 60px; margin-top: 0; background: #555;">조회</button>
           <button id="buyBtn" class="btn" style="width: 60px; margin-top: 0; background: #e24a4a;">매수</button>
         </div>
         <div id="qOut">-</div>
-
         <label style="margin-top: 24px;">보유 주식 목록</label>
         <div id="portfolioList" style="margin-top: 10px;"></div>
       </section>
-
     </div>
   </div>
   <script type="module" src="./app.js"></script>
