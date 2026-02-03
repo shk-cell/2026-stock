@@ -15,7 +15,7 @@
     label { display: block; margin-top: 16px; font-size: 12px; color: var(--pri); font-weight: 600; text-transform: uppercase; }
     input { width: 100%; height: 48px; margin-top: 6px; border-radius: 12px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 16px; outline: none; }
     .btn { width: 100%; height: 48px; margin-top: 24px; border-radius: 12px; border: 0; background: var(--pri); color: white; font-weight: 700; cursor: pointer; }
-    .btn-outline { background: transparent; border: 1px solid var(--line); height: 36px; padding: 0 12px; font-size: 13px; margin-top: 0; }
+    .btn-outline { background: transparent; border: 1px solid var(--line); height: 36px; padding: 0 12px; font-size: 13px; margin-top: 0; border-radius: 8px; }
     .hidden { display: none !important; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
     .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
@@ -23,7 +23,8 @@
     .stat-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
     .search-box { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
     #qOut { margin-top: 12px; font-weight: 600; color: var(--pri); min-height: 24px; }
-    .portfolio-item { background: #1e2a3a; padding: 12px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .portfolio-item { background: #1e2a3a; padding: 12px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; transition: border-color 0.2s; }
+    .portfolio-item:hover { border-color: var(--line); }
   </style>
 </head>
 <body>
@@ -58,18 +59,17 @@
             <div id="totalAssetsText" class="stat-value">$0.00</div>
           </div>
         </div>
-        <label>실시간 주가 조회 및 매수</label>
-          <div class="search-box">
-            <input id="qSymbol" placeholder="종목 코드" style="margin-top: 0; flex: 2;" />
-            <input id="qQty" type="number" value="1" min="1" style="margin-top: 0; flex: 1; text-align: center;" />
-            <button id="qBtn" class="btn" style="width: 60px; margin-top: 0; background: #555;">조회</button>
-            <button id="buyBtn" class="btn" style="width: 60px; margin-top: 0; background: #e24a4a;">매수</button>
-          </div>
-          <div id="qOut">-</div>
-          
-          <label style="margin-top: 24px;">내 포트폴리오 (보유 주식)</label>
-          <div id="portfolioList" style="margin-top: 10px;">
-            </div>
+        <label>주식 조회 및 매수/매도</label>
+        <div class="search-box">
+          <input id="qSymbol" placeholder="종목명" style="flex: 2;" />
+          <input id="qQty" type="number" value="1" min="1" style="flex: 1;" />
+          <button id="qBtn" class="btn" style="width: 55px; margin-top: 0; background: #555; padding:0;">조회</button>
+          <button id="buyBtn" class="btn" style="width: 55px; margin-top: 0; background: #e24a4a; padding:0;">매수</button>
+          <button id="sellBtn" class="btn" style="width: 55px; margin-top: 0; background: #2b7cff; padding:0;">매도</button>
+        </div>
+        <div id="qOut">-</div>
+        <label style="margin-top: 24px;">내 포트폴리오 (보유 주식)</label>
+        <div id="portfolioList" style="margin-top: 10px;"></div>
       </section>
     </div>
   </div>
