@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { 
   getFirestore, doc, getDoc, setDoc, runTransaction, 
-  serverTimestamp, collection, getDocs, deleteDoc 
+  serverTimestamp, collection, getDocs 
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { 
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged 
@@ -35,8 +35,6 @@ function show(el, on) {
   on ? el.classList.remove("hidden") : el.classList.add("hidden");
 }
 
-/* --- 핵심 기능 --- */
-
 async function fetchQuote() {
   const o = $("qOut");
   const s = $("qSymbol").value.trim().toUpperCase();
@@ -49,9 +47,7 @@ async function fetchQuote() {
       currentSymbol = d.symbol;
       currentStockPrice = d.price;
       o.innerHTML = `<b style="color:#2b7cff;">${d.symbol}</b>: ${money(d.price)} <small style="color:#93a4b8;">(조회됨)</small>`;
-    } else {
-      o.textContent = "조회 실패: 없는 종목";
-    }
+    } else { o.textContent = "조회 실패: 없는 종목"; }
   } catch { o.textContent = "네트워크 에러"; }
 }
 
@@ -61,14 +57,9 @@ async function buyStock() {
     alert("종목을 먼저 조회해 주세요.");
     return;
   }
-
   const inputQty = prompt(`${currentSymbol}을 몇 주 매수하시겠습니까?\n(현재가: ${money(currentStockPrice)})`, "1");
   const qty = parseInt(inputQty);
-
-  if (isNaN(qty) || qty <= 0) {
-    if (inputQty !== null) alert("올바른 수량을 입력해 주세요.");
-    return;
-  }
+  if (isNaN(qty) || qty <= 0) return;
 
   const totalCost = currentStockPrice * qty;
   const userRef = doc(db, "users", user.email);
@@ -80,13 +71,9 @@ async function buyStock() {
       const sSnap = await t.get(stockRef);
       const cash = uSnap.data().cash;
       if (cash < totalCost) throw "가용 자산이 부족합니다!";
-      
       t.update(userRef, { cash: cash - totalCost });
-      if (sSnap.exists()) {
-        t.update(stockRef, { qty: sSnap.data().qty + qty, updatedAt: serverTimestamp() });
-      } else {
-        t.set(stockRef, { symbol: currentSymbol, qty: qty, updatedAt: serverTimestamp() });
-      }
+      if (sSnap.exists()) t.update(stockRef, { qty: sSnap.data().qty + qty, updatedAt: serverTimestamp() });
+      else t.set(stockRef, { symbol: currentSymbol, qty: qty, updatedAt: serverTimestamp() });
     });
     alert("매수 완료!");
     await updateAssets(user);
@@ -103,7 +90,6 @@ async function sellStock(symbol, sellQty) {
       const uSnap = await t.get(userRef);
       const sSnap = await t.get(stockRef);
       if (!sSnap.exists() || sSnap.data().qty < sellQty) throw "보유 수량이 부족합니다!";
-      
       const cash = uSnap.data().cash;
       const totalGain = currentStockPrice * sellQty;
       t.update(userRef, { cash: cash + totalGain });
@@ -139,7 +125,6 @@ async function updateAssets(user) {
         const res = await r.json();
         if (res.ok) livePrice = res.price;
       } catch {}
-      
       totalStockValue += (livePrice * item.qty);
       listHtml += `
         <div class="portfolio-item">
@@ -152,8 +137,7 @@ async function updateAssets(user) {
               <b style="color:#fff; display:block;">${item.qty}주</b>
               <small style="color:var(--warn);">평가액: ${money(livePrice * item.qty)}</small>
             </div>
-            <button class="btn-outline" style="min-width:60px; background:var(--pri); color:white; border:none; cursor:pointer; font-weight:bold;" 
-              onclick="window.quickSell('${item.symbol}')">매도</button>
+            <button class="btn-sell" onclick="window.quickSell('${item.symbol}')">매도</button>
           </div>
         </div>`;
     }
@@ -166,12 +150,8 @@ window.quickSell = async (symbol) => {
   $("qSymbol").value = symbol;
   await fetchQuote();
   const q = prompt(`${symbol}을 몇 주 매도하시겠습니까?`, "1");
-  if (q && parseInt(q) > 0) {
-    await sellStock(symbol, parseInt(q));
-  }
+  if (q && parseInt(q) > 0) await sellStock(symbol, parseInt(q));
 };
-
-/* --- 인증 및 이벤트 --- */
 
 async function login() {
   const email = $("email").value.trim();
@@ -180,7 +160,7 @@ async function login() {
   catch { $("authMsg").textContent = "로그인 정보가 틀립니다."; }
 }
 
-async function render(user) {
+onAuthStateChanged(auth, async (user) => {
   const nextView = user ? "dash" : "auth";
   if (currentView !== nextView) {
     currentView = nextView;
@@ -189,9 +169,8 @@ async function render(user) {
     if (user) $("userEmail").textContent = user.email;
   }
   if (user) await updateAssets(user);
-}
+});
 
-onAuthStateChanged(auth, render);
 document.addEventListener("DOMContentLoaded", () => {
   $("loginBtn").onclick = login;
   $("logoutBtn").onclick = () => { currentView = null; signOut(auth); };
