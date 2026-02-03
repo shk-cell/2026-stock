@@ -1,3 +1,4 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
@@ -13,7 +14,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-/* ✅ 사용자 Firebase 설정 (제공해주신 값 그대로) */
+/* ✅ Firebase 설정 (사용자 제공 값) */
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
   authDomain: "stock-62c76.firebaseapp.com",
@@ -30,18 +31,41 @@ const db = getFirestore(app);
 
 /* ---------- DOM ---------- */
 const $ = (id) => document.getElementById(id);
+
+const authView = $("authView");
+const dashView = $("dashView");
+
 const emailEl = $("email");
 const pwEl = $("pw");
 const loginBtn = $("loginBtn");
+
 const logoutBtn = $("logoutBtn");
-const msgEl = $("msg");
-const assetEl = $("asset");
+
+const authMsg = $("authMsg");
+const dashMsg = $("dashMsg");
+const userEmail = $("userEmail");
+const cashText = $("cashText");
 
 const fmtUSD = (n) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(n || 0);
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
+
+function setText(el, text = "") {
+  if (el) el.textContent = text;
+}
+
+function showAuthed(user) {
+  authView.classList.add("hidden");
+  dashView.classList.remove("hidden");
+  setText(userEmail, user.email || "-");
+}
+
+function showGuest() {
+  dashView.classList.add("hidden");
+  authView.classList.remove("hidden");
+  setText(userEmail, "-");
+  setText(cashText, "-");
+  setText(dashMsg, "");
+}
 
 /* ---------- Firestore ---------- */
 async function ensureUserDoc(user) {
@@ -55,31 +79,34 @@ async function ensureUserDoc(user) {
       cash: 70000,
       createdAt: serverTimestamp(),
     });
+    return { cash: 70000, created: true };
   }
+
+  const data = snap.data();
+  return { cash: data.cash ?? 0, created: false };
 }
 
-async function showAsset(user) {
+async function loadCash(user) {
   const snap = await getDoc(doc(db, "users", user.uid));
   const data = snap.data();
-
-  assetEl.style.display = "block";
-  assetEl.innerHTML = `
-    <b>${user.email}</b><br/>
-    현재 금액: <b>${fmtUSD(data.cash)}</b>
-  `;
+  setText(cashText, fmtUSD(data?.cash ?? 0));
 }
 
-/* ---------- Auth ---------- */
+/* ---------- Events ---------- */
 loginBtn.onclick = async () => {
   try {
-    msgEl.textContent = "";
-    await signInWithEmailAndPassword(
-      auth,
-      emailEl.value.trim(),
-      pwEl.value
-    );
+    setText(authMsg, "");
+    const email = emailEl.value.trim();
+    const pw = pwEl.value;
+
+    if (!email || !pw) {
+      setText(authMsg, "이메일과 비밀번호를 입력해 주세요.");
+      return;
+    }
+
+    await signInWithEmailAndPassword(auth, email, pw);
   } catch (e) {
-    msgEl.textContent = "로그인 실패: " + e.code;
+    setText(authMsg, `로그인 실패: ${e.code || e.message}`);
   }
 };
 
@@ -90,14 +117,23 @@ logoutBtn.onclick = async () => {
 /* ---------- Auth State ---------- */
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    logoutBtn.style.display = "none";
-    assetEl.style.display = "none";
-    msgEl.textContent = "로그인 해 주세요.";
+    showGuest();
+    setText(authMsg, "로그인 해 주세요.");
     return;
   }
 
-  logoutBtn.style.display = "block";
-  msgEl.textContent = "로그인 성공! (첫 로그인 시 7만 달러 지급)";
-  await ensureUserDoc(user);
-  await showAsset(user);
+  showAuthed(user);
+
+  try {
+    const result = await ensureUserDoc(user);
+    await loadCash(user);
+
+    if (result.created) {
+      setText(dashMsg, "첫 로그인이라 70,000달러가 지급되었습니다.");
+    } else {
+      setText(dashMsg, "");
+    }
+  } catch (e) {
+    setText(dashMsg, `데이터 로딩 실패: ${e.code || e.message}`);
+  }
 });
