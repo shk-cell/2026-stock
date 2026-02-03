@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>모의 주식 투자</title>
   <style>
-    :root { --bg: #0b0f14; --card: #121923; --line: #1e2a3a; --muted: #93a4b8; --txt: #eaf0f7; --pri: #2b7cff; --warn: #ffd479; }
+    :root { --bg: #0b0f14; --card: #121923; --line: #1e2a3a; --muted: #93a4b8; --txt: #eaf0f7; --pri: #2b7cff; --warn: #ffd479; --up: #ff4d4d; --down: #4d94ff; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); }
     .wrap { max-width: 520px; margin: 60px auto; padding: 0 16px; }
@@ -19,7 +19,7 @@
     .btn:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
     
     .btn-buy { background: #e24a4a; width: 80px; }
-    .btn-sell { background: var(--pri); min-width: 80px; }
+    .btn-sell { background: var(--pri); min-width: 80px; height: 48px; border-radius: 12px; font-weight: 700; border: 0; color: white; cursor: pointer; }
     .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin-top: 10px; }
 
     .btn-outline { background: transparent; border: 1px solid var(--line); height: 36px; padding: 0 12px; font-size: 13px; border-radius: 8px; color: var(--muted); cursor: pointer; }
@@ -28,9 +28,12 @@
     .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
     .stat-label { font-size: 12px; color: var(--muted); }
     .stat-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
-    .search-box { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-    #qOut { margin-top: 12px; font-weight: 600; color: var(--pri); min-height: 24px; }
-    .portfolio-item { background: #1e2a3a; padding: 16px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    
+    .portfolio-item { background: #1e2a3a; padding: 16px; border-radius: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); }
+    .stock-info { display: flex; flex-direction: column; gap: 2px; }
+    .stock-price-info { font-size: 12px; color: var(--muted); }
+    .profit-up { color: var(--up); font-weight: bold; }
+    .profit-down { color: var(--down); font-weight: bold; }
     
     .notice-box { background: rgba(43, 124, 255, 0.05); border: 1px dashed var(--pri); padding: 15px; border-radius: 15px; margin-bottom: 24px; text-align: center; }
   </style>
@@ -49,10 +52,7 @@
 
       <section id="dashView" class="hidden">
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
-          <div>
-            <h1>Dashboard</h1>
-            <div id="userEmail" style="font-size: 12px; color: var(--muted);"></div>
-          </div>
+          <div><h1>Dashboard</h1><div id="userEmail" style="font-size: 12px; color: var(--muted);"></div></div>
           <button id="logoutBtn" class="btn-outline">로그아웃</button>
         </div>
 
@@ -63,17 +63,17 @@
         </div>
 
         <div class="stat-grid">
-          <div class="stat-card"><div class="stat-label">Cash</div><div id="cashText" class="stat-value">$0.00</div></div>
-          <div class="stat-card"><div class="stat-label">Total Asset</div><div id="totalAssetsText" class="stat-value">$0.00</div></div>
+          <div class="stat-card"><div class="stat-label">가용 현금</div><div id="cashText" class="stat-value">$0.00</div></div>
+          <div class="stat-card"><div class="stat-label">총 자산</div><div id="totalAssetsText" class="stat-value">$0.00</div></div>
         </div>
 
         <label>주식 조회 및 매수</label>
-        <div class="search-box">
+        <div class="search-box" style="display:flex; gap:8px; margin-top:6px;">
           <input id="qSymbol" placeholder="종목명 (예: TSLA)" style="flex: 1;" />
           <button id="qBtn" class="btn" style="width: 70px; background: #555;">조회</button>
           <button id="buyBtn" class="btn btn-buy" disabled>매수</button>
         </div>
-        <div id="qOut">종목을 조회하세요</div>
+        <div id="qOut" style="margin-top:10px; font-weight:bold; color:var(--pri);">종목을 조회하세요</div>
 
         <label style="margin-top: 24px;">내 포트폴리오</label>
         <div id="portfolioList" style="margin-top: 10px;"></div>
