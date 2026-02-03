@@ -1,156 +1,276 @@
+// app.js (FULL) - GitHub Pages + Firebase(Firestore) + Yahoo 현재가 조회(Functions)
+// - 간이 로그인(Firestore users/{id}에 password 저장)  ※교육용
+// - 첫 로그인 시 초기자산 지급(중복 지급 방지)
+// - 상단 배지(ID/총자산/로그아웃) 업데이트
+// - 현재가 조회 최소 UI: #qSymbol #qBtn #qOut
+//
+// 필요한 HTML id (없어도 코드가 조용히 넘어가도록 방어 처리됨)
+// - 로그인 영역: #loginWrap, #loginId, #loginPw, #loginBtn, #loginMsg
+// - 메인 영역: #appWrap
+// - 상단: #meIdBadge, #meAssetBadge, #logoutBtn
+// - 현재가: #qSymbol, #qBtn, #qOut
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getFirestore,
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-/* Firebase 설정 */
+// ===============================
+// 0) Firebase 설정 (본인 값으로 교체)
+// ===============================
 const firebaseConfig = {
-  apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
-  authDomain: "stock-62c76.firebaseapp.com",
-  projectId: "stock-62c76",
-  storageBucket: "stock-62c76.firebasestorage.app",
-  messagingSenderId: "149071161310",
-  appId: "1:149071161310:web:79ebd6f09321dd5f2f1f4f",
-  measurementId: "G-XESP43FXJG",
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID",
 };
 
+// ===============================
+// 1) Yahoo 현재가 Function URL (이미 배포된 것)
+// ===============================
+const QUOTE_ENDPOINT =
+  "https://us-central1-stock-62c76.cloudfunctions.net/quote";
+
+// ===============================
+// 2) 앱 기본 상수
+// ===============================
+const START_CASH = 70000;
+const SESSION_KEY = "stock_sim_user_id";
+
+// ===============================
+// 3) Firebase init
+// ===============================
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* DOM helpers */
+// ===============================
+// 4) 유틸
+// ===============================
 const $ = (id) => document.getElementById(id);
-const must = (id) => {
+
+function formatMoney(v) {
+  const n = Number(v || 0);
+  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+function setText(id, text) {
   const el = $(id);
-  if (!el) throw new Error(`HTML에서 id="${id}" 요소를 찾을 수 없습니다. (index.html id 확인!)`);
-  return el;
-};
-
-let authView, dashView, emailEl, pwEl, loginBtn, logoutBtn;
-let authMsg, dashMsg, userEmail, cashText;
-
-const fmtUSD = (n) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
-
-function safeSetText(el, text = "") {
   if (el) el.textContent = text;
 }
 
-function showGuest() {
-  authView.classList.remove("hidden");
-  dashView.classList.add("hidden");
+function show(id, isShow) {
+  const el = $(id);
+  if (!el) return;
+  el.style.display = isShow ? "" : "none";
 }
 
-function showAuthed(user) {
-  authView.classList.add("hidden");
-  dashView.classList.remove("hidden");
-  userEmail.textContent = user.email || "-";
+// ===============================
+// 5) 세션
+// ===============================
+function getMeId() {
+  return localStorage.getItem(SESSION_KEY) || "";
+}
+function setMeId(id) {
+  localStorage.setItem(SESSION_KEY, id);
+}
+function clearMeId() {
+  localStorage.removeItem(SESSION_KEY);
 }
 
-/* Firestore */
-async function ensureUserDoc(user) {
-  const ref = doc(db, "users", user.uid);
+// ===============================
+// 6) (교육용) 간이 로그인: Firestore users/{id}.password 비교
+//    - users/{id} 문서 예시:
+//      { password: "test", initialized: true/false, cash: 70000, createdAt: ... }
+// ===============================
+async function loginWithIdPassword(id, pw) {
+  const userId = (id || "").trim();
+  const password = (pw || "").trim();
+  if (!userId || !password) throw new Error("ID_PW_REQUIRED");
+
+  const ref = doc(db, "users", userId);
   const snap = await getDoc(ref);
 
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      email: user.email,
-      cash: 70000,
-      createdAt: serverTimestamp(),
-    });
-    return { created: true };
-  }
-  return { created: false };
-}
+  if (!snap.exists()) throw new Error("NO_USER");
 
-async function loadCash(user) {
-  const snap = await getDoc(doc(db, "users", user.uid));
   const data = snap.data();
-  cashText.textContent = fmtUSD(data?.cash ?? 0);
+  if ((data.password || "") !== password) throw new Error("BAD_PASSWORD");
+
+  // 최초 지급/초기화
+  if (!data.initialized) {
+    await updateDoc(ref, {
+      initialized: true,
+      cash: START_CASH,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  setMeId(userId);
+  return true;
 }
 
-/* 부팅 */
-function boot() {
-  // ✅ 여기서 id가 하나라도 없으면 즉시 “정확한 원인”을 에러로 보여줌
-  authView = must("authView");
-  dashView = must("dashView");
+// ===============================
+// 7) 현재 사용자 자산 읽기
+// ===============================
+async function getMyAsset() {
+  const meId = getMeId();
+  if (!meId) return null;
 
-  emailEl = must("email");
-  pwEl = must("pw");
-  loginBtn = must("loginBtn");
-  logoutBtn = must("logoutBtn");
+  const ref = doc(db, "users", meId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
 
-  authMsg = must("authMsg");
-  dashMsg = must("dashMsg");
-  userEmail = must("userEmail");
-  cashText = must("cashText");
+  const u = snap.data();
 
-  /* 이벤트 */
-  loginBtn.onclick = async () => {
-    try {
-      safeSetText(authMsg, "");
-      const email = emailEl.value.trim();
-      const pw = pwEl.value;
+  // 지금은 현금만 총자산으로 표시 (추후 보유주식 합산 가능)
+  const cash = Number(u.cash || 0);
+  const total = cash;
 
-      if (!email || !pw) {
-        safeSetText(authMsg, "이메일과 비밀번호를 입력해 주세요.");
-        return;
-      }
+  return { meId, cash, total };
+}
 
-      await signInWithEmailAndPassword(auth, email, pw);
-    } catch (e) {
-      safeSetText(authMsg, "로그인 실패: " + (e.code || e.message || e));
-    }
-  };
+// ===============================
+// 8) 상단 배지 업데이트
+// ===============================
+async function refreshTopbar() {
+  const meId = getMeId();
+  if (!meId) {
+    setText("meIdBadge", "ID: -");
+    setText("meAssetBadge", "총자산 -");
+    return;
+  }
 
-  logoutBtn.onclick = async () => {
-    await signOut(auth);
-  };
+  setText("meIdBadge", `ID: ${meId}`);
 
-  /* 인증 상태 */
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      showGuest();
-      safeSetText(authMsg, "로그인 해 주세요.");
-      return;
-    }
+  const asset = await getMyAsset();
+  if (!asset) {
+    setText("meAssetBadge", "총자산 -");
+    return;
+  }
+  setText("meAssetBadge", `총자산 $${formatMoney(asset.total)}`);
+}
 
-    showAuthed(user);
+// ===============================
+// 9) 로그아웃
+// ===============================
+function wireLogout() {
+  const btn = $("logoutBtn");
+  if (!btn) return;
 
-    try {
-      const result = await ensureUserDoc(user);
-      await loadCash(user);
-      safeSetText(
-        dashMsg,
-        result.created ? "첫 로그인이라 70,000달러가 지급되었습니다." : ""
-      );
-    } catch (e) {
-      safeSetText(dashMsg, "데이터 로딩 실패: " + (e.code || e.message || e));
-    }
+  btn.addEventListener("click", () => {
+    clearMeId();
+    routeByLogin();
   });
 }
 
-// ✅ 문서 로드 후 실행
-try {
-  boot();
-} catch (e) {
-  console.error(e);
-  // 화면에도 보이게 출력 (authMsg가 없을 수도 있으니 document에 직접 출력)
-  const pre = document.createElement("pre");
-  pre.style.whiteSpace = "pre-wrap";
-  pre.style.color = "#ffd479";
-  pre.style.padding = "12px";
-  pre.textContent = "초기화 오류:\n" + (e.message || e);
-  document.body.prepend(pre);
+// ===============================
+// 10) 화면 라우팅 (로그인/메인)
+// ===============================
+async function routeByLogin() {
+  const meId = getMeId();
+  const loggedIn = !!meId;
+
+  show("loginWrap", !loggedIn);
+  show("appWrap", loggedIn);
+
+  await refreshTopbar();
 }
 
+// ===============================
+// 11) 로그인 UI 연결
+// ===============================
+function wireLoginUI() {
+  const btn = $("loginBtn");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    const id = $("loginId")?.value || "";
+    const pw = $("loginPw")?.value || "";
+    const msg = $("loginMsg");
+
+    if (msg) msg.textContent = "";
+
+    try {
+      btn.disabled = true;
+      await loginWithIdPassword(id, pw);
+      await routeByLogin();
+    } catch (e) {
+      const code = String(e?.message || e);
+      if (msg) {
+        msg.textContent =
+          code === "NO_USER"
+            ? "존재하지 않는 아이디입니다."
+            : code === "BAD_PASSWORD"
+            ? "비밀번호가 틀렸습니다."
+            : code === "ID_PW_REQUIRED"
+            ? "아이디/비밀번호를 입력하세요."
+            : "로그인 실패";
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Enter로 로그인
+  const idInput = $("loginId");
+  const pwInput = $("loginPw");
+  const enterHandler = (ev) => {
+    if (ev.key === "Enter") btn.click();
+  };
+  if (idInput) idInput.addEventListener("keydown", enterHandler);
+  if (pwInput) pwInput.addEventListener("keydown", enterHandler);
+}
+
+// ===============================
+// 12) Yahoo 현재가 조회(Functions) - 최소
+// ===============================
+async function fetchQuote(symbol) {
+  const s = (symbol || "").trim().toUpperCase();
+  if (!s) throw new Error("SYMBOL_EMPTY");
+
+  const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
+  const d = await r.json();
+
+  if (!r.ok || !d.ok) throw new Error(d.error || "QUOTE_FAIL");
+  return d; // { ok, symbol, name, price, ... }
+}
+
+function wireQuoteMini() {
+  const $in = $("qSymbol");
+  const $btn = $("qBtn");
+  const $out = $("qOut");
+  if (!$in || !$btn || !$out) return; // UI 없으면 조용히 종료
+
+  const run = async () => {
+    const sym = $in.value;
+    $out.textContent = "조회중…";
+    try {
+      const q = await fetchQuote(sym);
+      const name = q.name ? `(${q.name})` : "";
+      $out.textContent = `${q.symbol} ${name} $${q.price}`;
+    } catch (e) {
+      $out.textContent = "조회 실패";
+    }
+  };
+
+  $btn.addEventListener("click", run);
+  $in.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") run();
+  });
+}
+
+// ===============================
+// 13) 시작
+// ===============================
+document.addEventListener("DOMContentLoaded", async () => {
+  wireLoginUI();
+  wireLogout();
+  wireQuoteMini();
+  await routeByLogin();
+});
