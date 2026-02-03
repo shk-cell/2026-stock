@@ -1,13 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { 
   getFirestore, doc, getDoc, setDoc, runTransaction, 
-  serverTimestamp, collection, getDocs 
+  serverTimestamp, collection, getDocs, deleteDoc 
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { 
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-// 1. Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
   authDomain: "stock-62c76.firebaseapp.com",
@@ -21,7 +20,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// 2. 상수 및 전역 변수
 const START_CASH = 70000;
 const QUOTE_ENDPOINT = "https://quote-ymhlxyctxq-uc.a.run.app"; 
 
@@ -29,7 +27,6 @@ let currentStockPrice = 0;
 let currentSymbol = "";
 let currentView = null;
 
-// 3. 유틸리티 함수
 const $ = (id) => document.getElementById(id);
 const money = (v) => `$${Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -38,16 +35,12 @@ function show(el, on) {
   on ? el.classList.remove("hidden") : el.classList.add("hidden");
 }
 
-/* ===============================
-   핵심 기능 함수
-================================ */
+/* --- 핵심 기능 --- */
 
-// 주가 조회
 async function fetchQuote() {
   const o = $("qOut");
   const s = $("qSymbol").value.trim().toUpperCase();
   if (!s) return;
-
   o.textContent = "조회중...";
   try {
     const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
@@ -57,159 +50,152 @@ async function fetchQuote() {
       currentStockPrice = d.price;
       o.innerHTML = `<b style="color:#2b7cff;">${d.symbol}</b>: ${money(d.price)} <small style="color:#93a4b8;">(조회됨)</small>`;
     } else {
-      currentSymbol = "";
-      currentStockPrice = 0;
       o.textContent = "조회 실패: 없는 종목";
     }
-  } catch (e) { 
-    o.textContent = "네트워크 에러"; 
-    console.error(e);
-  }
+  } catch { o.textContent = "네트워크 에러"; }
 }
 
-// 주식 매수
 async function buyStock() {
   const user = auth.currentUser;
-  const qtyInput = $("qQty");
-  const qty = parseInt(qtyInput.value);
-
+  const qty = parseInt($("qQty").value);
   if (!user || !currentSymbol || currentStockPrice <= 0 || isNaN(qty) || qty <= 0) {
-    alert("종목을 먼저 조회하고 올바른 수량을 확인하세요.");
+    alert("종목을 먼저 조회하고 수량을 확인하세요.");
     return;
   }
-
   const totalCost = currentStockPrice * qty;
   const userRef = doc(db, "users", user.email);
   const stockRef = doc(db, "users", user.email, "portfolio", currentSymbol);
 
   try {
-    await runTransaction(db, async (transaction) => {
-      // [중요] 모든 읽기(get) 작업을 쓰기 작업보다 먼저 수행합니다.
-      const userSnap = await transaction.get(userRef);
-      const stockSnap = await transaction.get(stockRef); // 읽기 작업을 위로 올림
-
-      if (!userSnap.exists()) throw "사용자 정보가 없습니다.";
-      
-      const cash = userSnap.data().cash;
+    await runTransaction(db, async (t) => {
+      const uSnap = await t.get(userRef);
+      const sSnap = await t.get(stockRef); // 모든 읽기를 먼저 수행
+      const cash = uSnap.data().cash;
       if (cash < totalCost) throw "가용 자산이 부족합니다!";
       
-      // [중요] 읽기가 모두 끝난 후 쓰기(update, set) 작업을 시작합니다.
-      // 1. 잔고 차감
-      transaction.update(userRef, { cash: cash - totalCost });
-
-      // 2. 포트폴리오 업데이트
-      if (stockSnap.exists()) {
-        transaction.update(stockRef, { 
-          qty: stockSnap.data().qty + qty,
-          updatedAt: serverTimestamp() 
-        });
+      t.update(userRef, { cash: cash - totalCost });
+      if (sSnap.exists()) {
+        t.update(stockRef, { qty: sSnap.data().qty + qty, updatedAt: serverTimestamp() });
       } else {
-        transaction.set(stockRef, { 
-          symbol: currentSymbol, 
-          qty: qty, 
-          updatedAt: serverTimestamp() 
-        });
+        t.set(stockRef, { symbol: currentSymbol, qty: qty, updatedAt: serverTimestamp() });
       }
     });
-
-    alert(`${currentSymbol} ${qty}주 매수 완료!`);
-    qtyInput.value = 1;
+    alert("매수 완료!");
     await updateAssets(user);
-  } catch (e) { 
-    alert(e); 
-    console.error(e);
-  }
+  } catch (e) { alert(e); }
 }
 
-// 자산 및 포트폴리오 목록 업데이트
+async function sellStock() {
+  const user = auth.currentUser;
+  const qty = parseInt($("qQty").value);
+  const symbol = $("qSymbol").value.trim().toUpperCase();
+  if (!user || !symbol || currentStockPrice <= 0 || isNaN(qty) || qty <= 0) {
+    alert("매도 정보를 확인하세요 (조회 필요).");
+    return;
+  }
+  const userRef = doc(db, "users", user.email);
+  const stockRef = doc(db, "users", user.email, "portfolio", symbol);
+
+  try {
+    await runTransaction(db, async (t) => {
+      const uSnap = await t.get(userRef);
+      const sSnap = await t.get(stockRef); // 읽기 우선
+      if (!sSnap.exists() || sSnap.data().qty < qty) throw "보유 수량이 부족합니다!";
+      
+      const cash = uSnap.data().cash;
+      const totalGain = currentStockPrice * qty;
+      t.update(userRef, { cash: cash + totalGain });
+      if (sSnap.data().qty === qty) t.delete(stockRef);
+      else t.update(stockRef, { qty: sSnap.data().qty - qty });
+    });
+    alert("매도 완료!");
+    await updateAssets(user);
+  } catch (e) { alert(e); }
+}
+
 async function updateAssets(user) {
   try {
     const userRef = doc(db, "users", user.email);
     const snap = await getDoc(userRef);
-    
-    // 유저 데이터가 없으면 초기화
     if (!snap.exists()) {
-      await setDoc(userRef, { cash: START_CASH, initialized: true });
+      await setDoc(userRef, { cash: START_CASH });
       $("cashText").textContent = money(START_CASH);
-      $("totalAssetsText").textContent = money(START_CASH);
       return;
     }
-
     const cash = snap.data().cash;
     $("cashText").textContent = money(cash);
 
-    // 포트폴리오 가져오기
     const portSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
     let listHtml = "";
-    portSnap.forEach(d => {
+    let totalStockValue = 0;
+
+    for (const d of portSnap.docs) {
       const item = d.data();
+      let livePrice = 0;
+      try {
+        const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(item.symbol)}`);
+        const res = await r.json();
+        if (res.ok) livePrice = res.price;
+      } catch {}
+      
+      totalStockValue += (livePrice * item.qty);
       listHtml += `
         <div class="portfolio-item">
-          <span>${item.symbol}</span>
-          <b style="color:#fff;">${item.qty}주</b>
+          <div style="display:flex; flex-direction:column;">
+            <span style="font-weight:bold; color:var(--pri);">${item.symbol}</span>
+            <small style="color:var(--muted);">현재가: ${money(livePrice)}</small>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="text-align:right;">
+              <b style="color:#fff; display:block;">${item.qty}주</b>
+              <small style="color:var(--warn);">평가액: ${money(livePrice * item.qty)}</small>
+            </div>
+            <button class="btn-outline" style="border-color:var(--pri); color:var(--pri); cursor:pointer;" 
+              onclick="window.quickSell('${item.symbol}')">매도</button>
+          </div>
         </div>`;
-    });
-    
+    }
     $("portfolioList").innerHTML = listHtml || '<div class="muted" style="text-align:center;">보유 주식 없음</div>';
-    
-    // 현재는 단순하게 가용자산만 총자산으로 표시 (추후 주식 가치 합산 기능 추가 가능)
-    $("totalAssetsText").textContent = money(cash);
-    
-  } catch (e) { 
-    console.error("Asset Load Error:", e); 
-  }
+    $("totalAssetsText").textContent = money(cash + totalStockValue); //
+  } catch (e) { console.error(e); }
 }
 
-/* ===============================
-   인증 및 렌더링
-================================ */
+window.quickSell = async (symbol) => {
+  $("qSymbol").value = symbol;
+  await fetchQuote();
+  const q = prompt(`${symbol}을 몇 주 매도하시겠습니까?`, "1");
+  if (q && parseInt(q) > 0) {
+    $("qQty").value = q;
+    await sellStock();
+  }
+};
+
+/* --- 인증 및 이벤트 --- */
 
 async function login() {
   const email = $("email").value.trim();
   const pw = $("pw").value.trim();
-  const msg = $("authMsg");
-
-  if (!email || !pw) return;
-
-  try {
-    await signInWithEmailAndPassword(auth, email, pw);
-    msg.textContent = "";
-  } catch (e) { 
-    msg.textContent = "로그인 정보가 틀립니다."; 
-  }
+  try { await signInWithEmailAndPassword(auth, email, pw); } 
+  catch { $("authMsg").textContent = "로그인 정보가 틀립니다."; }
 }
 
 async function render(user) {
   const nextView = user ? "dash" : "auth";
-  
   if (currentView !== nextView) {
     currentView = nextView;
     show($("authView"), !user);
     show($("dashView"), !!user);
-    
-    if (user) {
-      $("userEmail").textContent = user.email;
-      $("email").value = ""; 
-      $("pw").value = "";
-    }
+    if (user) $("userEmail").textContent = user.email;
   }
-
   if (user) await updateAssets(user);
 }
 
-// 이벤트 리스너 통합 관리
-function wireEvents() {
+onAuthStateChanged(auth, render);
+document.addEventListener("DOMContentLoaded", () => {
   $("loginBtn").onclick = login;
   $("logoutBtn").onclick = () => { currentView = null; signOut(auth); };
-  
   $("qBtn").onclick = fetchQuote;
   $("buyBtn").onclick = buyStock;
-
-  // 엔터키 지원
-  $("qSymbol").onkeydown = (e) => { if (e.key === "Enter") fetchQuote(); };
-  $("pw").onkeydown = (e) => { if (e.key === "Enter") login(); };
-}
-
-// 초기화 호출
-onAuthStateChanged(auth, render);
-document.addEventListener("DOMContentLoaded", wireEvents);
+  $("sellBtn").onclick = sellStock;
+  $("pw").onkeydown = (e) => e.key === "Enter" && login();
+});
