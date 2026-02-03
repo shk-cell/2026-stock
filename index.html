@@ -65,11 +65,9 @@
       border:1px solid var(--pri);
       color:#bcd6ff;
     }
-    .row{display:flex;gap:10px;margin-top:12px}
     .msg{margin-top:12px;font-size:13px;color:var(--warn)}
     .hidden{display:none}
 
-    /* dashboard */
     .top{
       display:flex;
       justify-content:space-between;
@@ -102,22 +100,22 @@
   <div class="wrap">
     <div class="card">
 
-      <!-- 🔹 로그인 전 -->
+      <!-- 로그인 전 -->
       <section id="authView">
         <h1>로그인</h1>
-        <div class="muted">이메일 / 비밀번호로 로그인합니다.</div>
+        <div class="muted">이메일 / 비밀번호로 로그인</div>
 
         <label>이메일</label>
-        <input id="email" type="email" placeholder="test01@test.com" />
+        <input id="email" type="email" />
 
         <label>비밀번호</label>
-        <input id="pw" type="password" placeholder="123456" />
+        <input id="pw" type="password" />
 
         <button id="loginBtn" class="btn">로그인</button>
         <div id="authMsg" class="msg"></div>
       </section>
 
-      <!-- 🔹 로그인 후 -->
+      <!-- 로그인 후 -->
       <section id="dashView" class="hidden">
         <div class="top">
           <div>
