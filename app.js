@@ -7,6 +7,7 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
+// 1. Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
   authDomain: "stock-62c76.firebaseapp.com",
@@ -20,6 +21,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// 2. 상수 및 전역 변수
 const START_CASH = 70000;
 const QUOTE_ENDPOINT = "https://quote-ymhlxyctxq-uc.a.run.app"; 
 
@@ -37,6 +39,7 @@ function show(el, on) {
 
 /* --- 핵심 기능 --- */
 
+// 주가 조회 함수
 async function fetchQuote() {
   const o = $("qOut");
   const s = $("qSymbol").value.trim().toUpperCase();
@@ -55,6 +58,7 @@ async function fetchQuote() {
   } catch { o.textContent = "네트워크 에러"; }
 }
 
+// 주식 매수 함수
 async function buyStock() {
   const user = auth.currentUser;
   const qty = parseInt($("qQty").value);
@@ -68,8 +72,9 @@ async function buyStock() {
 
   try {
     await runTransaction(db, async (t) => {
+      // 모든 읽기(get)를 먼저 수행하여 에러 방지
       const uSnap = await t.get(userRef);
-      const sSnap = await t.get(stockRef);
+      const sSnap = await t.get(stockRef); 
       const cash = uSnap.data().cash;
       if (cash < totalCost) throw "가용 자산이 부족합니다!";
       
@@ -85,6 +90,7 @@ async function buyStock() {
   } catch (e) { alert(e); }
 }
 
+// 주식 매도 함수
 async function sellStock() {
   const user = auth.currentUser;
   const qty = parseInt($("qQty").value);
@@ -99,7 +105,7 @@ async function sellStock() {
   try {
     await runTransaction(db, async (t) => {
       const uSnap = await t.get(userRef);
-      const sSnap = await t.get(stockRef);
+      const sSnap = await t.get(stockRef); 
       if (!sSnap.exists() || sSnap.data().qty < qty) throw "보유 수량이 부족합니다!";
       
       const cash = uSnap.data().cash;
@@ -113,6 +119,7 @@ async function sellStock() {
   } catch (e) { alert(e); }
 }
 
+// 자산 및 포트폴리오 업데이트 (현재가 표시 및 목록 내 매도 버튼)
 async function updateAssets(user) {
   try {
     const userRef = doc(db, "users", user.email);
@@ -159,6 +166,7 @@ async function updateAssets(user) {
   } catch (e) { console.error(e); }
 }
 
+// 목록에서 매도 버튼 클릭 시 처리
 window.quickSell = async (symbol) => {
   $("qSymbol").value = symbol;
   await fetchQuote();
@@ -190,11 +198,12 @@ async function render(user) {
 }
 
 onAuthStateChanged(auth, render);
+
 document.addEventListener("DOMContentLoaded", () => {
   $("loginBtn").onclick = login;
   $("logoutBtn").onclick = () => { currentView = null; signOut(auth); };
   $("qBtn").onclick = fetchQuote;
   $("buyBtn").onclick = buyStock;
-  $("sellBtn").onclick = sellStock;
+  // 상단 매도 버튼(sellBtn) 이벤트 연결은 제거되었습니다.
   $("pw").onkeydown = (e) => e.key === "Enter" && login();
 });
