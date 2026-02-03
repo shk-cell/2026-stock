@@ -136,10 +136,20 @@
         </div>
         
         <!-- ====== 최소 현재가 조회 UI ====== -->
-        <div class="quote-mini">
-          <input id="qSymbol" class="q-in" placeholder="AAPL" autocomplete="off" />
-          <button id="qBtn" class="q-btn">조회</button>
-          <span id="qOut" class="q-out">-</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input
+            id="qSymbol"
+            placeholder="AAPL"
+            autocomplete="off"
+            style="width:110px;padding:8px 10px;border:1px solid #ddd;border-radius:10px"
+          />
+          <button
+            id="qBtn"
+            style="padding:8px 12px;border:1px solid #ddd;border-radius:10px;cursor:pointer"
+          >
+            조회
+          </button>
+          <span id="qOut" style="font-weight:700">-</span>
         </div>
         
       </section>
