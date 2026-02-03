@@ -1,11 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-// Authentication 모듈 로드
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-/* ===============================
-   Firebase 설정
-================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
   authDomain: "stock-62c76.firebaseapp.com",
@@ -17,14 +13,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app); // 인증 객체
+const auth = getAuth(app);
 
 const START_CASH = 70000;
 const QUOTE_ENDPOINT = "https://us-central1-stock-62c76.cloudfunctions.net/quote";
 
-/* ===============================
-   유틸리티
-================================ */
 const $ = (id) => document.getElementById(id);
 const money = (v) => `$${Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
@@ -34,11 +27,9 @@ function show(el, on) {
   else el.classList.add("hidden");
 }
 
-/* ===============================
-   메인 로직 (인증 기반)
-================================ */
+// [핵심 수정] 현재 뷰 상태를 저장하여 불필요한 리렌더링 방지
+let currentView = null;
 
-// 1. 로그인 함수
 async function login() {
   const email = $("email").value.trim();
   const pw = $("pw").value.trim();
@@ -54,59 +45,74 @@ async function login() {
   msg.textContent = "로그인 중...";
 
   try {
-    // Firebase Auth 정식 로그인 (인증 메뉴의 계정 확인)
     await signInWithEmailAndPassword(auth, email, pw);
-    msg.textContent = "";
+    // 성공 시 onAuthStateChanged가 호출되므로 여기서 input을 비울 필요 없음
   } catch (e) {
     console.error(e);
-    if (e.code === "auth/invalid-credential") msg.textContent = "계정 정보가 틀립니다.";
+    if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password") msg.textContent = "계정 정보가 틀립니다.";
     else if (e.code === "auth/user-not-found") msg.textContent = "등록되지 않은 사용자입니다.";
-    else msg.textContent = "로그인 실패: " + e.message;
+    else msg.textContent = "로그인 실패: " + e.code;
   } finally {
     btn.disabled = false;
   }
 }
 
-// 2. 화면 렌더링 (로그인 상태에 따라 자동 전환)
 async function render(user) {
   const authView = $("authView");
   const dashView = $("dashView");
+
+  // 상태가 실제로 변했을 때만 뷰 전환 (비밀번호 입력 방해 방지)
+  const nextView = user ? "dash" : "auth";
+  if (currentView === nextView) {
+    // 이미 해당 뷰라면 잔고 데이터만 업데이트하고 리턴
+    if (user) await updateBalance(user);
+    return;
+  }
+  currentView = nextView;
 
   if (user) {
     show(authView, false);
     show(dashView, true);
     $("userEmail").textContent = user.email;
-
-    // Firestore에서 유저 잔고 정보 가져오기
-    // (Auth 계정과 연동하기 위해 이메일을 문서 ID로 사용)
-    const userRef = doc(db, "users", user.email);
-    const snap = await getDoc(userRef);
-
-    if (snap.exists()) {
-      $("cashText").textContent = money(snap.data().cash);
-    } else {
-      // Auth엔 계정이 있지만 Firestore에 데이터가 없는 경우 초기화
-      await setDoc(userRef, { cash: START_CASH, initialized: true });
-      $("cashText").textContent = money(START_CASH);
-    }
+    await updateBalance(user);
+    // 로그인 성공 시 입력 필드 초기화
+    $("email").value = "";
+    $("pw").value = "";
+    $("authMsg").textContent = "";
   } else {
     show(authView, true);
     show(dashView, false);
   }
 }
 
-/* ===============================
-   이벤트 연결
-================================ */
+// 잔고 업데이트 로직 분리
+async function updateBalance(user) {
+  try {
+    const userRef = doc(db, "users", user.email);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      $("cashText").textContent = money(snap.data().cash);
+    } else {
+      await setDoc(userRef, { cash: START_CASH, initialized: true });
+      $("cashText").textContent = money(START_CASH);
+    }
+  } catch (e) {
+    console.error("잔고 로드 실패:", e);
+  }
+}
+
 function wireEvents() {
   $("loginBtn").onclick = login;
-  
-  $("logoutBtn").onclick = () => signOut(auth);
+  $("logoutBtn").onclick = () => {
+    currentView = null; // 로그아웃 시 상태 초기화
+    signOut(auth);
+  };
 
-  // 엔터 키 대응
-  $("pw").onkeydown = (e) => e.key === "Enter" && login();
+  // 엔터 키 대응 (preventDefault 제거로 입력 방해 금지)
+  $("pw").onkeydown = (e) => {
+    if (e.key === "Enter") login();
+  };
 
-  // 주가 조회
   $("qBtn").onclick = async () => {
     const o = $("qOut");
     const s = $("qSymbol").value.trim().toUpperCase();
@@ -115,17 +121,13 @@ function wireEvents() {
     try {
       const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
       const d = await r.json();
-      o.textContent = d.ok ? `${d.symbol}: $${d.price}` : "실패";
+      o.textContent = d.ok ? `${d.symbol}: $${d.price}` : "조회 실패";
     } catch {
-      o.textContent = "에러";
+      o.textContent = "네트워크 에러";
     }
   };
 }
 
-/* ===============================
-   초기화 (관찰자 설정)
-================================ */
-// 페이지 로드 시 인증 상태 관찰자 등록
 onAuthStateChanged(auth, (user) => {
   render(user);
 });
