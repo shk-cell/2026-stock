@@ -39,14 +39,14 @@ function show(el, on) {
 }
 
 /* ===============================
-   세션 관리
+   세션 관리 (로컬스토리지 기반)
 ================================ */
 const getMe = () => localStorage.getItem(SESSION_KEY);
 const setMe = (id) => localStorage.setItem(SESSION_KEY, id);
 const clearMe = () => localStorage.removeItem(SESSION_KEY);
 
 /* ===============================
-   로그인 로직 (회원가입 겸용)
+   로그인 로직 (기존 유저 전용)
 ================================ */
 async function loginAndInit(id, pw) {
   const uid = id.trim();
@@ -58,25 +58,25 @@ async function loginAndInit(id, pw) {
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     
+    // [중요] 유저 문서가 없으면 에러 발생 (자동 생성 안 함)
     if (!snap.exists()) {
-      // 유저가 없으면 자동 생성 (테스트용)
-      tx.set(ref, {
-        password: pass,
+      throw "NO_USER"; 
+    }
+
+    const u = snap.data();
+    
+    // 비밀번호 검증
+    if (u.password !== pass) {
+      throw "BAD_PASSWORD";
+    }
+
+    // 문서에 initialized가 false인 경우에만 초기 지원금 설정
+    if (!u.initialized) {
+      tx.update(ref, {
         initialized: true,
         cash: START_CASH,
-        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
-    } else {
-      const u = snap.data();
-      if (u.password !== pass) throw "BAD_PASSWORD";
-      
-      if (!u.initialized) {
-        tx.update(ref, {
-          initialized: true,
-          cash: START_CASH,
-          updatedAt: serverTimestamp(),
-        });
-      }
     }
   });
 
@@ -98,8 +98,11 @@ async function loadMe() {
 async function render() {
   const me = await loadMe();
   
-  show($("authView"), !me);
-  show($("dashView"), !!me);
+  const authView = $("authView");
+  const dashView = $("dashView");
+
+  show(authView, !me);
+  show(dashView, !!me);
 
   if (me) {
     $("userEmail").textContent = me.id;
@@ -115,24 +118,25 @@ function wireLogin() {
   if (!btn) return;
 
   btn.onclick = async () => {
+    // 클릭 시점에 input 요소를 가져와서 null 방지
     const emailEl = $("email");
     const pwEl = $("pw");
     const msg = $("authMsg");
 
     if (!emailEl || !pwEl) return;
 
-    msg.textContent = "로그인 중...";
+    msg.textContent = "확인 중...";
     btn.disabled = true;
 
     try {
       await loginAndInit(emailEl.value, pwEl.value);
       await render();
     } catch (e) {
-      console.error(e);
-      msg.textContent = 
-        e === "ID_PW_REQUIRED" ? "아이디/비밀번호를 입력하세요." :
-        e === "BAD_PASSWORD" ? "비밀번호가 틀렸습니다." : 
-        "로그인 실패 (Firestore 규칙 확인 필요)";
+      console.error("Login Error:", e);
+      if (e === "ID_PW_REQUIRED") msg.textContent = "아이디/비밀번호를 입력하세요.";
+      else if (e === "NO_USER") msg.textContent = "등록되지 않은 계정입니다.";
+      else if (e === "BAD_PASSWORD") msg.textContent = "비밀번호가 틀렸습니다.";
+      else msg.textContent = "로그인 실패 (Firestore 규칙을 확인하세요)";
     } finally {
       btn.disabled = false;
     }
@@ -169,7 +173,9 @@ function wireQuote() {
   };
 }
 
-// 시작
+/* ===============================
+   초기화
+================================ */
 document.addEventListener("DOMContentLoaded", () => {
   wireLogin();
   wireLogout();
