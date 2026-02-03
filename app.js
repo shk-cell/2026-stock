@@ -84,17 +84,20 @@ async function buyStock() {
 
   try {
     await runTransaction(db, async (transaction) => {
+      // [중요] 모든 읽기(get) 작업을 쓰기 작업보다 먼저 수행합니다.
       const userSnap = await transaction.get(userRef);
+      const stockSnap = await transaction.get(stockRef); // 읽기 작업을 위로 올림
+
       if (!userSnap.exists()) throw "사용자 정보가 없습니다.";
       
       const cash = userSnap.data().cash;
       if (cash < totalCost) throw "가용 자산이 부족합니다!";
       
-      // 잔고 업데이트
+      // [중요] 읽기가 모두 끝난 후 쓰기(update, set) 작업을 시작합니다.
+      // 1. 잔고 차감
       transaction.update(userRef, { cash: cash - totalCost });
 
-      // 포트폴리오 업데이트
-      const stockSnap = await transaction.get(stockRef);
+      // 2. 포트폴리오 업데이트
       if (stockSnap.exists()) {
         transaction.update(stockRef, { 
           qty: stockSnap.data().qty + qty,
@@ -110,8 +113,8 @@ async function buyStock() {
     });
 
     alert(`${currentSymbol} ${qty}주 매수 완료!`);
-    qtyInput.value = 1; // 수량 초기화
-    await updateAssets(user); // UI 갱신
+    qtyInput.value = 1;
+    await updateAssets(user);
   } catch (e) { 
     alert(e); 
     console.error(e);
