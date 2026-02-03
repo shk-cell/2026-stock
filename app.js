@@ -1,10 +1,3 @@
-// app.js — index.html(authView/email/pw/dashView) 전용 최종본
-// 구조:
-// - Firestore users/{id} 기반 간이 로그인
-// - 첫 로그인 시 70,000달러 지급 (중복 방지)
-// - 현재 금액 표시
-// - Yahoo Finance 현재가 조회 (Firebase Functions)
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getFirestore,
@@ -15,7 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /* ===============================
-   Firebase 설정 (확정값)
+   Firebase 설정
 ================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
@@ -30,34 +23,30 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 /* ===============================
-   상수
+   상수 및 유틸
 ================================ */
 const START_CASH = 70000;
 const SESSION_KEY = "stock_user_id";
-const QUOTE_ENDPOINT =
-  "https://us-central1-stock-62c76.cloudfunctions.net/quote";
+const QUOTE_ENDPOINT = "https://us-central1-stock-62c76.cloudfunctions.net/quote";
 
-/* ===============================
-   유틸
-================================ */
 const $ = (id) => document.getElementById(id);
-const money = (v) =>
-  `$${Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+const money = (v) => `$${Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
 function show(el, on) {
   if (!el) return;
-  el.classList.toggle("hidden", !on);
+  if (on) el.classList.remove("hidden");
+  else el.classList.add("hidden");
 }
 
 /* ===============================
-   세션
+   세션 관리
 ================================ */
 const getMe = () => localStorage.getItem(SESSION_KEY);
 const setMe = (id) => localStorage.setItem(SESSION_KEY, id);
 const clearMe = () => localStorage.removeItem(SESSION_KEY);
 
 /* ===============================
-   로그인 + 첫 지급 (트랜잭션)
+   로그인 로직 (회원가입 겸용)
 ================================ */
 async function loginAndInit(id, pw) {
   const uid = id.trim();
@@ -68,17 +57,26 @@ async function loginAndInit(id, pw) {
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
-    if (!snap.exists()) throw "NO_USER";
-
-    const u = snap.data();
-    if (u.password !== pass) throw "BAD_PASSWORD";
-
-    if (!u.initialized) {
-      tx.update(ref, {
+    
+    if (!snap.exists()) {
+      // 유저가 없으면 자동 생성 (테스트용)
+      tx.set(ref, {
+        password: pass,
         initialized: true,
         cash: START_CASH,
-        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
       });
+    } else {
+      const u = snap.data();
+      if (u.password !== pass) throw "BAD_PASSWORD";
+      
+      if (!u.initialized) {
+        tx.update(ref, {
+          initialized: true,
+          cash: START_CASH,
+          updatedAt: serverTimestamp(),
+        });
+      }
     }
   });
 
@@ -88,116 +86,93 @@ async function loginAndInit(id, pw) {
 async function loadMe() {
   const uid = getMe();
   if (!uid) return null;
-
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) return null;
-
   const u = snap.data();
   return { id: uid, cash: Number(u.cash || 0) };
 }
 
 /* ===============================
-   렌더
+   렌더링
 ================================ */
 async function render() {
-  const authView = $("authView");
-  const dashView = $("dashView");
-
-  const userEmail = $("userEmail");
-  const cashText = $("cashText");
-
   const me = await loadMe();
-
-  show(authView, !me);
-  show(dashView, !!me);
+  
+  show($("authView"), !me);
+  show($("dashView"), !!me);
 
   if (me) {
-    userEmail.textContent = me.id;
-    cashText.textContent = money(me.cash);
+    $("userEmail").textContent = me.id;
+    $("cashText").textContent = money(me.cash);
   }
 }
 
 /* ===============================
-   로그인 UI
+   이벤트 바인딩
 ================================ */
 function wireLogin() {
-  const email = $("email");
-  const pw = $("pw");
   const btn = $("loginBtn");
-  const msg = $("authMsg");
+  if (!btn) return;
 
   btn.onclick = async () => {
-    msg.textContent = "";
+    const emailEl = $("email");
+    const pwEl = $("pw");
+    const msg = $("authMsg");
+
+    if (!emailEl || !pwEl) return;
+
+    msg.textContent = "로그인 중...";
     btn.disabled = true;
 
     try {
-      await loginAndInit(email.value, pw.value);
+      await loginAndInit(emailEl.value, pwEl.value);
       await render();
     } catch (e) {
-      msg.textContent =
-        e === "ID_PW_REQUIRED"
-          ? "아이디/비밀번호를 입력하세요."
-          : e === "NO_USER"
-          ? "존재하지 않는 아이디입니다."
-          : e === "BAD_PASSWORD"
-          ? "비밀번호가 틀렸습니다."
-          : "로그인 실패";
+      console.error(e);
+      msg.textContent = 
+        e === "ID_PW_REQUIRED" ? "아이디/비밀번호를 입력하세요." :
+        e === "BAD_PASSWORD" ? "비밀번호가 틀렸습니다." : 
+        "로그인 실패 (Firestore 규칙 확인 필요)";
     } finally {
       btn.disabled = false;
     }
   };
-
-  email.onkeydown = (e) => e.key === "Enter" && btn.click();
-  pw.onkeydown = (e) => e.key === "Enter" && btn.click();
 }
 
-/* ===============================
-   로그아웃
-================================ */
 function wireLogout() {
-  $("logoutBtn").onclick = async () => {
-    clearMe();
-    await render();
-  };
-}
-
-/* ===============================
-   현재가 조회
-================================ */
-async function fetchQuote(symbol) {
-  const s = symbol.trim().toUpperCase();
-  if (!s) throw "NO_SYMBOL";
-
-  const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
-  const d = await r.json();
-  if (!r.ok || !d.ok) throw "QUOTE_FAIL";
-  return d;
+  const btn = $("logoutBtn");
+  if (btn) {
+    btn.onclick = () => {
+      clearMe();
+      render();
+    };
+  }
 }
 
 function wireQuote() {
   const i = $("qSymbol");
   const b = $("qBtn");
   const o = $("qOut");
+  if (!b) return;
 
   b.onclick = async () => {
     o.textContent = "조회중…";
     try {
-      const q = await fetchQuote(i.value);
-      o.textContent = `${q.symbol} (${q.name}) $${q.price}`;
+      const s = i.value.trim().toUpperCase();
+      const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw "FAIL";
+      o.textContent = `${d.symbol}: $${d.price}`;
     } catch {
       o.textContent = "조회 실패";
     }
   };
-
-  i.onkeydown = (e) => e.key === "Enter" && b.click();
 }
 
-/* ===============================
-   시작
-================================ */
-document.addEventListener("DOMContentLoaded", async () => {
+// 시작
+document.addEventListener("DOMContentLoaded", () => {
   wireLogin();
   wireLogout();
   wireQuote();
-  await render();
+  render();
 });
