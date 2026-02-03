@@ -178,23 +178,34 @@
       <section id="dashView" class="hidden">
         <div class="top">
           <div>
-            <h1>Dashboard</h1>
+            <h1>Portfolio</h1>
             <div id="userEmail" class="pill">user@email.com</div>
           </div>
           <button id="logoutBtn" class="btn btn-outline" style="width: auto;">로그아웃</button>
         </div>
-
-        <div class="stat-card">
-          <div class="stat-label">현재 가용 자산</div>
-          <div id="cashText" class="stat-value">$0.00</div>
+      
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+          <div class="stat-card" style="margin-bottom: 0;">
+            <div class="stat-label">가용 자산 (Cash)</div>
+            <div id="cashText" class="stat-value" style="font-size: 24px;">$0.00</div>
+          </div>
+          <div class="stat-card" style="margin-bottom: 0;">
+            <div class="stat-label">총 자산 (Total)</div>
+            <div id="totalAssetsText" class="stat-value" style="font-size: 24px;">$0.00</div>
+          </div>
         </div>
-
-        <label>실시간 주가 조회</label>
+      
+        <label>주식 매수</label>
         <div class="search-box">
-          <input id="qSymbol" placeholder="종목 코드 (예: AAPL)" style="margin-top: 0;" />
-          <button id="qBtn" class="btn" style="width: 80px; margin-top: 0;">조회</button>
+          <input id="qSymbol" placeholder="종목 코드" style="margin-top: 0; flex: 2;" />
+          <input id="qQty" type="number" value="1" min="1" style="margin-top: 0; flex: 1;" />
+          <button id="buyBtn" class="btn" style="width: 80px; margin-top: 0; background: #e24a4a;">매수</button>
         </div>
-        <div id="qOut">-</div>
+        <div id="qOut" style="margin-bottom: 20px;">-</div>
+      
+        <label>보유 주식</label>
+        <div id="portfolioList" style="margin-top: 10px; font-size: 14px;">
+          </div>
       </section>
 
     </div>
