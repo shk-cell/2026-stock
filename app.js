@@ -13,7 +13,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-/* 🔹 Firebase 설정 (사용자 제공) */
+/* Firebase 설정 */
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
   authDomain: "stock-62c76.firebaseapp.com",
@@ -28,7 +28,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* ---------- DOM ---------- */
+/* DOM */
 const $ = (id) => document.getElementById(id);
 
 const authView = $("authView");
@@ -45,9 +45,12 @@ const userEmail = $("userEmail");
 const cashText = $("cashText");
 
 const fmtUSD = (n) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(n || 0);
 
-/* ---------- 화면 전환 ---------- */
+/* 화면 전환 */
 function showGuest() {
   authView.classList.remove("hidden");
   dashView.classList.add("hidden");
@@ -59,7 +62,7 @@ function showAuthed(user) {
   userEmail.textContent = user.email;
 }
 
-/* ---------- Firestore ---------- */
+/* Firestore */
 async function ensureUserDoc(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
@@ -70,10 +73,9 @@ async function ensureUserDoc(user) {
       cash: 70000,
       createdAt: serverTimestamp(),
     });
-    return { created: true, cash: 70000 };
+    return { created: true };
   }
-
-  return { created: false, cash: snap.data().cash };
+  return { created: false };
 }
 
 async function loadCash(user) {
@@ -81,7 +83,7 @@ async function loadCash(user) {
   cashText.textContent = fmtUSD(snap.data().cash);
 }
 
-/* ---------- 이벤트 ---------- */
+/* 이벤트 */
 loginBtn.onclick = async () => {
   try {
     authMsg.textContent = "";
@@ -99,7 +101,7 @@ logoutBtn.onclick = async () => {
   await signOut(auth);
 };
 
-/* ---------- 인증 상태 ---------- */
+/* 인증 상태 */
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     showGuest();
@@ -109,10 +111,13 @@ onAuthStateChanged(auth, async (user) => {
 
   showAuthed(user);
 
-  const result = await ensureUserDoc(user);
-  await loadCash(user);
-
-  dashMsg.textContent = result.created
-    ? "첫 로그인이라 70,000달러가 지급되었습니다."
-    : "";
+  try {
+    const result = await ensureUserDoc(user);
+    await loadCash(user);
+    dashMsg.textContent = result.created
+      ? "첫 로그인이라 70,000달러가 지급되었습니다."
+      : "";
+  } catch (e) {
+    dashMsg.textContent = "데이터 로딩 실패";
+  }
 });
