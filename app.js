@@ -66,7 +66,10 @@ async function refreshEverything() {
       } catch {}
 
       totalStockValue += (livePrice * item.qty);
-      const profitRate = (((livePrice - item.avgPrice) / item.avgPrice) * 100).toFixed(2);
+      
+      // 평단가가 없는 기존 데이터를 위한 예외 처리
+      const avgPrice = item.avgPrice || livePrice; 
+      const profitRate = avgPrice > 0 ? (((livePrice - avgPrice) / avgPrice) * 100).toFixed(2) : "0.00";
       const profitClass = profitRate >= 0 ? "profit-up" : "profit-down";
       const profitSign = profitRate >= 0 ? "+" : "";
 
@@ -74,7 +77,7 @@ async function refreshEverything() {
         <div class="portfolio-item">
           <div class="stock-info">
             <b style="color:var(--pri); font-size:16px;">${item.symbol}</b>
-            <div class="stock-price-info">매수: ${money(item.avgPrice)}</div>
+            <div class="stock-price-info">매수: ${money(avgPrice)}</div>
             <div class="stock-price-info">현재: ${money(livePrice)} <span class="${profitClass}">${profitSign}${profitRate}%</span></div>
           </div>
           <div style="display:flex; align-items:center; gap:12px;">
@@ -129,14 +132,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (q && parseInt(q) > 0) {
       try {
         await runTransaction(db, async (t) => {
-          const uRef = doc(doc(db, "users", auth.currentUser.email));
+          const uRef = doc(db, "users", auth.currentUser.email);
           const sRef = doc(db, "users", auth.currentUser.email, "portfolio", currentSymbol);
           const uS = await t.get(uRef); const sS = await t.get(sRef);
           const total = currentStockPrice * q;
           if (uS.data().cash < total) throw "잔액 부족";
           t.update(uRef, { cash: uS.data().cash - total });
           if (sS.exists()) {
-            const oldQty = sS.data().qty; const oldAvg = sS.data().avgPrice || 0;
+            const oldQty = sS.data().qty; const oldAvg = sS.data().avgPrice || currentStockPrice;
             const newQty = oldQty + parseInt(q);
             const newAvg = ((oldAvg * oldQty) + (currentStockPrice * q)) / newQty;
             t.update(sRef, { qty: newQty, avgPrice: newAvg });
