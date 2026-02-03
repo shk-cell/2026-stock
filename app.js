@@ -1,14 +1,5 @@
 // app.js (FULL) - GitHub Pages + Firebase(Firestore) + Yahoo 현재가 조회(Functions)
-// - 간이 로그인(Firestore users/{id}에 password 저장)  ※교육용
-// - 첫 로그인 시 초기자산 지급(중복 지급 방지)
-// - 상단 배지(ID/총자산/로그아웃) 업데이트
-// - 현재가 조회 최소 UI: #qSymbol #qBtn #qOut
-//
-// 필요한 HTML id (없어도 코드가 조용히 넘어가도록 방어 처리됨)
-// - 로그인 영역: #loginWrap, #loginId, #loginPw, #loginBtn, #loginMsg
-// - 메인 영역: #appWrap
-// - 상단: #meIdBadge, #meAssetBadge, #logoutBtn
-// - 현재가: #qSymbol, #qBtn, #qOut
+// 교육용 간이 로그인 구조
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
@@ -21,43 +12,44 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // ===============================
-// 0) Firebase 설정 (본인 값으로 교체)
+// Firebase 설정 (사용자 제공 값)
 // ===============================
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
+  authDomain: "stock-62c76.firebaseapp.com",
+  projectId: "stock-62c76",
+  storageBucket: "stock-62c76.firebasestorage.app",
+  messagingSenderId: "149071161310",
+  appId: "1:149071161310:web:79ebd6",
 };
 
 // ===============================
-// 1) Yahoo 현재가 Function URL (이미 배포된 것)
+// Yahoo 현재가 Function URL
 // ===============================
 const QUOTE_ENDPOINT =
   "https://us-central1-stock-62c76.cloudfunctions.net/quote";
 
 // ===============================
-// 2) 앱 기본 상수
+// 앱 상수
 // ===============================
 const START_CASH = 70000;
 const SESSION_KEY = "stock_sim_user_id";
 
 // ===============================
-// 3) Firebase init
+// Firebase init
 // ===============================
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ===============================
-// 4) 유틸
+// 유틸
 // ===============================
 const $ = (id) => document.getElementById(id);
 
 function formatMoney(v) {
-  const n = Number(v || 0);
-  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return Number(v || 0).toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  });
 }
 
 function setText(id, text) {
@@ -65,17 +57,16 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
-function show(id, isShow) {
+function show(id, on) {
   const el = $(id);
-  if (!el) return;
-  el.style.display = isShow ? "" : "none";
+  if (el) el.style.display = on ? "" : "none";
 }
 
 // ===============================
-// 5) 세션
+// 세션
 // ===============================
 function getMeId() {
-  return localStorage.getItem(SESSION_KEY) || "";
+  return localStorage.getItem(SESSION_KEY);
 }
 function setMeId(id) {
   localStorage.setItem(SESSION_KEY, id);
@@ -85,25 +76,20 @@ function clearMeId() {
 }
 
 // ===============================
-// 6) (교육용) 간이 로그인: Firestore users/{id}.password 비교
-//    - users/{id} 문서 예시:
-//      { password: "test", initialized: true/false, cash: 70000, createdAt: ... }
+// 간이 로그인
 // ===============================
 async function loginWithIdPassword(id, pw) {
-  const userId = (id || "").trim();
-  const password = (pw || "").trim();
-  if (!userId || !password) throw new Error("ID_PW_REQUIRED");
+  const uid = id.trim();
+  if (!uid || !pw) throw "ID_PW_REQUIRED";
 
-  const ref = doc(db, "users", userId);
+  const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
+  if (!snap.exists()) throw "NO_USER";
 
-  if (!snap.exists()) throw new Error("NO_USER");
+  const u = snap.data();
+  if (u.password !== pw) throw "BAD_PASSWORD";
 
-  const data = snap.data();
-  if ((data.password || "") !== password) throw new Error("BAD_PASSWORD");
-
-  // 최초 지급/초기화
-  if (!data.initialized) {
+  if (!u.initialized) {
     await updateDoc(ref, {
       initialized: true,
       cash: START_CASH,
@@ -111,162 +97,121 @@ async function loginWithIdPassword(id, pw) {
     });
   }
 
-  setMeId(userId);
-  return true;
+  setMeId(uid);
 }
 
 // ===============================
-// 7) 현재 사용자 자산 읽기
+// 자산
 // ===============================
 async function getMyAsset() {
-  const meId = getMeId();
-  if (!meId) return null;
+  const uid = getMeId();
+  if (!uid) return null;
 
-  const ref = doc(db, "users", meId);
-  const snap = await getDoc(ref);
+  const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) return null;
 
-  const u = snap.data();
-
-  // 지금은 현금만 총자산으로 표시 (추후 보유주식 합산 가능)
-  const cash = Number(u.cash || 0);
-  const total = cash;
-
-  return { meId, cash, total };
+  const cash = Number(snap.data().cash || 0);
+  return { cash, total: cash };
 }
 
 // ===============================
-// 8) 상단 배지 업데이트
+// 상단
 // ===============================
 async function refreshTopbar() {
-  const meId = getMeId();
-  if (!meId) {
-    setText("meIdBadge", "ID: -");
-    setText("meAssetBadge", "총자산 -");
-    return;
-  }
-
-  setText("meIdBadge", `ID: ${meId}`);
+  const uid = getMeId();
+  setText("meIdBadge", uid ? `ID: ${uid}` : "ID: -");
 
   const asset = await getMyAsset();
-  if (!asset) {
-    setText("meAssetBadge", "총자산 -");
-    return;
-  }
-  setText("meAssetBadge", `총자산 $${formatMoney(asset.total)}`);
+  setText(
+    "meAssetBadge",
+    asset ? `총자산 $${formatMoney(asset.total)}` : "총자산 -"
+  );
 }
 
 // ===============================
-// 9) 로그아웃
+// 로그아웃
 // ===============================
 function wireLogout() {
   const btn = $("logoutBtn");
-  if (!btn) return;
-
-  btn.addEventListener("click", () => {
-    clearMeId();
-    routeByLogin();
-  });
+  if (btn)
+    btn.onclick = () => {
+      clearMeId();
+      routeByLogin();
+    };
 }
 
 // ===============================
-// 10) 화면 라우팅 (로그인/메인)
+// 화면
 // ===============================
 async function routeByLogin() {
-  const meId = getMeId();
-  const loggedIn = !!meId;
-
-  show("loginWrap", !loggedIn);
-  show("appWrap", loggedIn);
-
+  const on = !!getMeId();
+  show("loginWrap", !on);
+  show("appWrap", on);
   await refreshTopbar();
 }
 
 // ===============================
-// 11) 로그인 UI 연결
+// 로그인 UI
 // ===============================
 function wireLoginUI() {
   const btn = $("loginBtn");
   if (!btn) return;
 
-  btn.addEventListener("click", async () => {
-    const id = $("loginId")?.value || "";
-    const pw = $("loginPw")?.value || "";
+  btn.onclick = async () => {
+    const id = $("loginId").value;
+    const pw = $("loginPw").value;
     const msg = $("loginMsg");
-
     if (msg) msg.textContent = "";
 
     try {
-      btn.disabled = true;
       await loginWithIdPassword(id, pw);
       await routeByLogin();
     } catch (e) {
-      const code = String(e?.message || e);
-      if (msg) {
-        msg.textContent =
-          code === "NO_USER"
-            ? "존재하지 않는 아이디입니다."
-            : code === "BAD_PASSWORD"
-            ? "비밀번호가 틀렸습니다."
-            : code === "ID_PW_REQUIRED"
-            ? "아이디/비밀번호를 입력하세요."
-            : "로그인 실패";
-      }
-    } finally {
-      btn.disabled = false;
+      if (!msg) return;
+      msg.textContent =
+        e === "NO_USER"
+          ? "존재하지 않는 아이디입니다."
+          : e === "BAD_PASSWORD"
+          ? "비밀번호가 틀렸습니다."
+          : "로그인 실패";
     }
-  });
-
-  // Enter로 로그인
-  const idInput = $("loginId");
-  const pwInput = $("loginPw");
-  const enterHandler = (ev) => {
-    if (ev.key === "Enter") btn.click();
   };
-  if (idInput) idInput.addEventListener("keydown", enterHandler);
-  if (pwInput) pwInput.addEventListener("keydown", enterHandler);
 }
 
 // ===============================
-// 12) Yahoo 현재가 조회(Functions) - 최소
+// 현재가 조회
 // ===============================
 async function fetchQuote(symbol) {
-  const s = (symbol || "").trim().toUpperCase();
-  if (!s) throw new Error("SYMBOL_EMPTY");
-
-  const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
+  const r = await fetch(
+    `${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(symbol)}`
+  );
   const d = await r.json();
-
-  if (!r.ok || !d.ok) throw new Error(d.error || "QUOTE_FAIL");
-  return d; // { ok, symbol, name, price, ... }
+  if (!r.ok || !d.ok) throw "QUOTE_FAIL";
+  return d;
 }
 
 function wireQuoteMini() {
-  const $in = $("qSymbol");
-  const $btn = $("qBtn");
-  const $out = $("qOut");
-  if (!$in || !$btn || !$out) return; // UI 없으면 조용히 종료
+  const i = $("qSymbol"),
+    b = $("qBtn"),
+    o = $("qOut");
+  if (!i || !b || !o) return;
 
   const run = async () => {
-    const sym = $in.value;
-    $out.textContent = "조회중…";
+    o.textContent = "조회중…";
     try {
-      const q = await fetchQuote(sym);
-      const name = q.name ? `(${q.name})` : "";
-      $out.textContent = `${q.symbol} ${name} $${q.price}`;
-    } catch (e) {
-      $out.textContent = "조회 실패";
+      const q = await fetchQuote(i.value);
+      o.textContent = `${q.symbol} (${q.name}) $${q.price}`;
+    } catch {
+      o.textContent = "조회 실패";
     }
   };
 
-  $btn.addEventListener("click", run);
-  $in.addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter") run();
-  });
+  b.onclick = run;
+  i.onkeydown = (e) => e.key === "Enter" && run();
 }
 
 // ===============================
-// 13) 시작
+// 시작
 // ===============================
 document.addEventListener("DOMContentLoaded", async () => {
   wireLoginUI();
