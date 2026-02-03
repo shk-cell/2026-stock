@@ -69,7 +69,7 @@ async function buyStock() {
   try {
     await runTransaction(db, async (t) => {
       const uSnap = await t.get(userRef);
-      const sSnap = await t.get(stockRef); // 모든 읽기를 먼저 수행
+      const sSnap = await t.get(stockRef);
       const cash = uSnap.data().cash;
       if (cash < totalCost) throw "가용 자산이 부족합니다!";
       
@@ -99,7 +99,7 @@ async function sellStock() {
   try {
     await runTransaction(db, async (t) => {
       const uSnap = await t.get(userRef);
-      const sSnap = await t.get(stockRef); // 읽기 우선
+      const sSnap = await t.get(stockRef);
       if (!sSnap.exists() || sSnap.data().qty < qty) throw "보유 수량이 부족합니다!";
       
       const cash = uSnap.data().cash;
@@ -150,13 +150,12 @@ async function updateAssets(user) {
               <b style="color:#fff; display:block;">${item.qty}주</b>
               <small style="color:var(--warn);">평가액: ${money(livePrice * item.qty)}</small>
             </div>
-            <button class="btn-outline" style="border-color:var(--pri); color:var(--pri); cursor:pointer;" 
-              onclick="window.quickSell('${item.symbol}')">매도</button>
+            <button class="btn-outline" onclick="window.quickSell('${item.symbol}')">매도</button>
           </div>
         </div>`;
     }
     $("portfolioList").innerHTML = listHtml || '<div class="muted" style="text-align:center;">보유 주식 없음</div>';
-    $("totalAssetsText").textContent = money(cash + totalStockValue); //
+    $("totalAssetsText").textContent = money(cash + totalStockValue);
   } catch (e) { console.error(e); }
 }
 
