@@ -4,118 +4,64 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>모의 주식 투자</title>
-
   <style>
     :root{
-      --bg:#0b0f14;
-      --card:#121923;
-      --line:#1e2a3a;
-      --muted:#93a4b8;
-      --txt:#eaf0f7;
-      --pri:#2b7cff;
-      --warn:#ffd479;
+      --bg:#0b0f14; --card:#121923; --line:#1e2a3a;
+      --muted:#93a4b8; --txt:#eaf0f7; --pri:#2b7cff; --warn:#ffd479;
     }
     *{box-sizing:border-box}
     body{
-      margin:0;
-      font-family:system-ui, Apple SD Gothic Neo, Noto Sans KR, sans-serif;
-      background:var(--bg);
-      color:var(--txt);
+      margin:0; background:var(--bg); color:var(--txt);
+      font-family:system-ui, sans-serif;
     }
-    .wrap{
-      max-width:520px;
-      margin:80px auto;
-      padding:0 16px;
-    }
+    .wrap{ max-width:520px; margin:80px auto; padding:0 16px; }
     .card{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:20px;
-      box-shadow:0 12px 30px rgba(0,0,0,.25);
+      background:var(--card); border:1px solid var(--line);
+      border-radius:16px; padding:20px; box-shadow:0 12px 30px rgba(0,0,0,.25);
     }
-    h1{margin:0 0 14px;font-size:22px}
-    .muted{color:var(--muted);font-size:13px}
-    label{display:block;margin-top:14px;font-size:12px;color:var(--muted)}
+    h1{margin:0 0 14px; font-size:22px}
+    .muted{color:var(--muted); font-size:13px}
+    label{display:block; margin-top:14px; font-size:12px; color:var(--muted)}
     input{
-      width:100%;
-      height:44px;
-      margin-top:6px;
-      border-radius:10px;
-      border:1px solid var(--line);
-      background:#0e141d;
-      color:var(--txt);
-      padding:0 12px;
-      outline:none;
+      width:100%; height:44px; margin-top:6px; border-radius:10px;
+      border:1px solid var(--line); background:#0e141d; color:var(--txt);
+      padding:0 12px; outline:none;
     }
     input:focus{border-color:var(--pri)}
     .btn{
-      height:44px;
-      border-radius:10px;
-      border:0;
-      background:var(--pri);
-      color:white;
-      font-weight:800;
-      cursor:pointer;
-      width:100%;
-      margin-top:16px;
+      height:44px; border-radius:10px; border:0; background:var(--pri);
+      color:white; font-weight:800; cursor:pointer; width:100%; margin-top:16px;
     }
-    .btn-outline{
-      background:transparent;
-      border:1px solid var(--pri);
-      color:#bcd6ff;
-    }
-    .msg{margin-top:12px;font-size:13px;color:var(--warn)}
-    .hidden{display:none}
-
-    .top{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-    }
+    .btn:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .btn-outline{ background:transparent; border:1px solid var(--pri); color:#bcd6ff; }
+    .msg{margin-top:12px; font-size:13px; color:var(--warn)}
+    .hidden{display:none !important}
+    .top{ display:flex; justify-content:space-between; align-items:center; }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      height:30px;
-      padding:0 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      color:var(--muted);
-      font-size:12px;
+      display:inline-flex; align-items:center; height:30px; padding:0 10px;
+      border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:12px;
     }
     .stat{
-      margin-top:16px;
-      padding:16px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:#0e141d;
+      margin:16px 0; padding:16px; border:1px solid var(--line);
+      border-radius:14px; background:#0e141d;
     }
-    .stat .k{font-size:12px;color:var(--muted)}
-    .stat .v{margin-top:6px;font-size:26px;font-weight:900}
+    .stat .v{margin-top:6px; font-size:26px; font-weight:900}
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
-
-      <!-- 로그인 전 -->
       <section id="authView">
         <h1>로그인</h1>
-        <div class="muted">이메일 / 비밀번호로 로그인</div>
-
+        <div class="muted">이메일과 비밀번호를 입력하세요.</div>
         <label>이메일</label>
-        <input id="email" type="email" />
-
+        <input id="email" type="email" placeholder="example@test.com" />
         <label>비밀번호</label>
         <input id="pw" type="password" />
-
-        <button id="loginBtn" class="btn">로그인</button>
+        <button id="loginBtn" class="btn">로그인 / 시작하기</button>
         <div id="authMsg" class="msg"></div>
       </section>
 
-      <!-- 로그인 후 -->
       <section id="dashView" class="hidden">
         <div class="top">
           <div>
@@ -124,39 +70,18 @@
           </div>
           <button id="logoutBtn" class="btn btn-outline" style="width:auto">로그아웃</button>
         </div>
-
-        <div id="dashMsg" class="msg"></div>
-
         <div class="stat">
-          <div class="k">현재 금액</div>
-          <div id="cashText" class="v">-</div>
-          <div class="muted" style="margin-top:6px">
-            첫 로그인 시 70,000달러 지급
-          </div>
+          <div class="muted">현재 잔고</div>
+          <div id="cashText" class="v">$0.00</div>
         </div>
-        
-        <!-- ====== 최소 현재가 조회 UI ====== -->
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input
-            id="qSymbol"
-            placeholder="AAPL"
-            autocomplete="off"
-            style="width:110px;padding:8px 10px;border:1px solid #ddd;border-radius:10px"
-          />
-          <button
-            id="qBtn"
-            style="padding:8px 12px;border:1px solid #ddd;border-radius:10px;cursor:pointer"
-          >
-            조회
-          </button>
-          <span id="qOut" style="font-weight:700">-</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="qSymbol" placeholder="AAPL" style="width:120px" />
+          <button id="qBtn" class="btn" style="width:auto; margin-top:6px;">조회</button>
+          <span id="qOut" style="font-weight:700; margin-left:10px;">-</span>
         </div>
-        
       </section>
-
     </div>
   </div>
-
   <script type="module" src="./app.js"></script>
 </body>
 </html>
