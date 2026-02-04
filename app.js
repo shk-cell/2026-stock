@@ -168,6 +168,7 @@ $("buyBtn").onclick = buyStock;
 $("globalRefreshBtn").onclick = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
 window.sellStock = sellStock;
 
+// 자동 계정 생성 및 초기 자금 70,000달러 설정
 onAuthStateChanged(auth, async (u) => {
   if (u) {
     const uRef = doc(db, "users", u.email);
@@ -176,10 +177,11 @@ onAuthStateChanged(auth, async (u) => {
       await setDoc(uRef, {
         email: u.email,
         nickname: u.email.split('@')[0],
-        cash: 10000,
-        totalAsset: 10000,
+        cash: 70000,          // 초기 자금 7만 달러
+        totalAsset: 70000,    // 초기 총 자산 7만 달러
         createdAt: serverTimestamp()
       });
+      console.log("새 유저 등록 완료 ($70,000 지급)");
     }
     $("authView").classList.add("hidden");
     $("dashView").classList.remove("hidden");
