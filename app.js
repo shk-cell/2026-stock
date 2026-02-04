@@ -114,7 +114,9 @@ async function refreshData() {
   const uData = uSnap.data();
   if(!uData) return;
 
+  // [수정] 닉네임과 이메일을 함께 표시
   $("userNickname").textContent = uData.nickname || user.email.split('@')[0];
+  $("userEmail").textContent = user.email; 
   $("cashText").textContent = money(uData.cash);
   
   let total = uData.cash;
@@ -156,7 +158,9 @@ async function refreshData() {
   let hHtml = "";
   hSnap.forEach(d => {
     const h = d.data();
-    hHtml += `<div class="item-flex" style="font-size:12px;"><span>${h.type === '매수'?'🔴':'🔵'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
+    // [수정] 최근 거래내역에 '매수', '매도' 텍스트 명시
+    const typeLabel = h.type === '매수' ? '🔴 매수' : '🔵 매도';
+    hHtml += `<div class="item-flex" style="font-size:12px;"><span>${typeLabel} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
   });
   $("transactionList").innerHTML = hHtml || "내역 없음";
 }
@@ -168,7 +172,6 @@ $("buyBtn").onclick = buyStock;
 $("globalRefreshBtn").onclick = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
 window.sellStock = sellStock;
 
-// 자동 계정 생성 및 초기 자금 70,000달러 설정
 onAuthStateChanged(auth, async (u) => {
   if (u) {
     const uRef = doc(db, "users", u.email);
@@ -177,8 +180,8 @@ onAuthStateChanged(auth, async (u) => {
       await setDoc(uRef, {
         email: u.email,
         nickname: u.email.split('@')[0],
-        cash: 70000,          // 초기 자금 7만 달러
-        totalAsset: 70000,    // 초기 총 자산 7만 달러
+        cash: 70000,
+        totalAsset: 70000,
         createdAt: serverTimestamp()
       });
       console.log("새 유저 등록 완료 ($70,000 지급)");
