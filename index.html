@@ -29,7 +29,7 @@
 
     .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 14px; flex: 1; }
     .list-box { background: #1a222c; border-radius: 16px; padding: 12px; margin-top: 8px; border: 1px solid var(--line); }
-    .item-flex { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #243142; }
+    .item-flex { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #243142; gap: 8px; }
     .item-flex:last-child { border: 0; }
 
     #qOutBox { margin-top: 10px; padding: 15px; background: #1e2a3a; border-radius: 12px; display: none; align-items: center; justify-content: space-between; border-left: 4px solid var(--warn); }
@@ -54,7 +54,7 @@
 
         <button id="globalRefreshBtn" class="btn btn-refresh">현재 시세 업데이트 ↻</button>
         <div style="text-align:center; margin-bottom: 10px;">
-          <div id="expireMsg">남은 시간: 60:00</div>
+          <div id="expireMsg">시세 갱신 필요</div>
           <div style="font-size: 11px; color: var(--warn); margin-top: 4px;">
             ※ 시세 업데이트 해야 매수 / 매도 기능이 활성화됩니다.
           </div>
