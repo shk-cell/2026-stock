@@ -45,6 +45,50 @@ async function fetchQuote() {
   } catch { $("qOut").textContent = "에러 발생"; }
 }
 
+// 랭킹 데이터를 서버에 업데이트
+async function updateLeaderboard(totalAsset) {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    const userRef = doc(db, "users", user.email);
+    await setDoc(userRef, { 
+      totalAsset: totalAsset,
+      lastActive: serverTimestamp() 
+    }, { merge: true });
+    await fetchRanking();
+  } catch (e) { console.error("랭킹 갱신 실패:", e); }
+}
+
+// 전체 사용자 랭킹 조회
+async function fetchRanking() {
+  try {
+    const qSnap = await getDocs(collection(db, "users"));
+    let rankingData = [];
+    qSnap.forEach(doc => {
+      const data = doc.data();
+      if (data.totalAsset) {
+        rankingData.push({ email: doc.id, totalAsset: data.totalAsset });
+      }
+    });
+
+    rankingData.sort((a, b) => b.totalAsset - a.totalAsset);
+
+    let rankHtml = "";
+    rankingData.slice(0, 10).forEach((u, i) => {
+      const isMe = u.email === auth.currentUser?.email;
+      rankHtml += `
+        <div class="rank-item ${isMe ? 'rank-me' : ''}">
+          <div style="display:flex; gap:12px; align-items:center;">
+            <span style="font-weight:800; color:${i < 3 ? 'var(--warn)' : 'var(--muted)'}; width:20px;">${i + 1}</span>
+            <span style="font-size:14px; ${isMe ? 'color:var(--pri); font-weight:bold;' : ''}">${u.email.split('@')[0]}</span>
+          </div>
+          <span style="font-weight:700;">${money(u.totalAsset)}</span>
+        </div>`;
+    });
+    $("rankingList").innerHTML = rankHtml || '<div style="padding:20px; text-align:center;">데이터 없음</div>';
+  } catch (e) { console.error(e); }
+}
+
 async function refreshEverything() {
   const user = auth.currentUser; if (!user) return;
   $("globalRefreshBtn").textContent = "갱신 중...";
@@ -66,9 +110,7 @@ async function refreshEverything() {
       } catch {}
 
       totalStockValue += (livePrice * item.qty);
-      
-      // 평단가가 없는 기존 데이터를 위한 예외 처리
-      const avgPrice = item.avgPrice || livePrice; 
+      const avgPrice = item.avgPrice || livePrice;
       const profitRate = avgPrice > 0 ? (((livePrice - avgPrice) / avgPrice) * 100).toFixed(2) : "0.00";
       const profitClass = profitRate >= 0 ? "profit-up" : "profit-down";
       const profitSign = profitRate >= 0 ? "+" : "";
@@ -87,8 +129,14 @@ async function refreshEverything() {
         </div>`;
     }
     $("portfolioList").innerHTML = listHtml || '<div style="text-align:center; color:var(--muted); padding:20px;">보유 주식 없음</div>';
-    $("totalAssetsText").textContent = money(cash + totalStockValue);
-    lastRefreshTime = Date.now(); updateTradeButtonStatus();
+    
+    const finalTotalAsset = cash + totalStockValue;
+    $("totalAssetsText").textContent = money(finalTotalAsset);
+    
+    lastRefreshTime = Date.now(); 
+    updateTradeButtonStatus();
+    await updateLeaderboard(finalTotalAsset); // 랭킹 업데이트
+
   } catch (e) { console.error(e); }
   $("globalRefreshBtn").textContent = "시세 갱신 ↻";
 }
