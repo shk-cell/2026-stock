@@ -123,15 +123,19 @@ async function refreshData() {
     const avg = item.avgPrice || item.lastPrice;
     const cur = item.lastPrice; 
     const rate = ((cur - avg) / avg * 100).toFixed(2);
+    
+    // 수익률에 따른 색상 및 기호 조건 설정
     const color = rate > 0 ? "var(--up)" : (rate < 0 ? "var(--down)" : "var(--muted)");
+    const sign = rate > 0 ? "+" : ""; 
+    
     total += (item.qty * cur);
     
     pHtml += `<div class="item-flex">
       <div style="flex:1;">
         <b style="font-size:15px;">${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
         <span style="font-size:12px; color:var(--muted);">구매: ${money(avg)}</span> | 
-        <span style="font-size:12px; color:var(--warn);">현재: ${money(cur)}</span><br>
-        <b style="color:${color}; font-size:14px;">${rate > 0 ? '+':''}${rate}% 수익중</b>
+        <span style="font-size:12px; color:var(--warn);">현재: ${money(cur)}</span> | 
+        <b style="color:${color}; font-size:12px;">${sign}${rate}%</b>
       </div>
       <button onclick="window.sellStock('${d.id}', ${cur})" class="btn btn-trade btn-sell">매도</button>
     </div>`;
