@@ -52,7 +52,7 @@
           <button id="logoutBtn" style="background:none; border:1px solid var(--line); color:var(--muted); font-size:11px; padding:4px 8px; border-radius:6px; cursor:pointer;">로그아웃</button>
         </div>
 
-        <button id="globalRefreshBtn" class="btn btn-refresh">시세 업데이트 ↻</button>
+        <button id="globalRefreshBtn" class="btn btn-refresh">현재 시세 업데이트 ↻</button>
         <div style="text-align:center; margin-bottom: 10px;">
           <div id="expireMsg">시세 갱신 필요</div>
           <div style="font-size: 11px; color: var(--warn); margin-top: 4px;">
@@ -65,7 +65,7 @@
           <div class="stat-card"><div>총 자산</div><div id="totalAssetsText" style="font-size:18px; font-weight:800;">$0.00</div></div>
         </div>
 
-        <label>주식 조회</label>
+        <label>주식 조회 및 거래</label>
         <div style="display:flex; gap:6px; margin-top:6px;">
           <input id="qSymbol" placeholder="종목코드 입력" style="flex:1;" />
           <button id="qBtn" class="btn" style="width:60px; background:#3a4452;">조회</button>
@@ -73,8 +73,10 @@
         </div>
 
         <div class="guide-box">
-          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력 (예: AAPL, TSLA, NVDA)<br>
-          <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS</b> 붙이기 (예: 005930.KS)<br>
+          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력<br>
+          (예: 애플 : <b>AAPL</b>, 테슬라 : <b>TSLA</b>, 엔비디아 : <b>NVDA</b>)<br><br>
+          <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS</b> 붙이기<br>
+          (예: 삼성전자 : <b>005930.KS</b>, SK하이닉스 : <b>000660.KS</b>)<br>
           <div style="color:var(--up); margin-top:4px;">※ 한국 주식은 실시간 환율을 적용하여 <b>달러($)로 자동 변환</b>됩니다.</div>
         </div>
 
