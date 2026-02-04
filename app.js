@@ -24,6 +24,7 @@ let currentStockPrice = 0;
 let currentSymbol = "";
 let lastRefreshTime = 0;
 
+// 버튼 상태 및 시세 만료 체크
 function updateTradeButtonStatus() {
   const now = Date.now();
   const isFresh = (now - lastRefreshTime) < 3600000;
@@ -31,21 +32,33 @@ function updateTradeButtonStatus() {
   $("expireMsg").textContent = isFresh ? `시세 유효 (${Math.ceil((3600000-(now-lastRefreshTime))/60000)}분 남음)` : "⚠️ 시세 만료 (갱신 필요)";
 }
 
+// 주식 조회 함수 (수정됨)
 async function fetchQuote() {
   const s = $("qSymbol").value.trim().toUpperCase();
   if (!s) return;
+  $("qBtn").textContent = "...";
   try {
     const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
     const d = await r.json();
     if (d.ok) {
-      currentSymbol = d.symbol; currentStockPrice = d.price;
-      $("qOutBox").style.display = "flex";
+      currentSymbol = d.symbol; 
+      currentStockPrice = d.price;
+      $("qOutBox").style.display = "flex"; // 박스 보이기
       $("qSymbolText").textContent = d.symbol;
       $("qPriceText").textContent = money(d.price);
-    } else { alert("조회 실패"); }
-  } catch { alert("에러 발생"); }
+    } else { 
+      alert("종목을 찾을 수 없습니다.");
+      $("qOutBox").style.display = "none";
+    }
+  } catch (e) { 
+    console.error(e);
+    alert("조회 중 오류 발생");
+  } finally {
+    $("qBtn").textContent = "조회";
+  }
 }
 
+// 랭킹 및 내역 관련 함수들
 async function updateLeaderboard(totalAsset) {
   const user = auth.currentUser; if (!user) return;
   await setDoc(doc(db, "users", user.email), { totalAsset, lastActive: serverTimestamp() }, { merge: true });
@@ -82,6 +95,7 @@ async function fetchHistory() {
   }).join('') || "내역 없음";
 }
 
+// 전체 데이터 갱신
 async function refreshEverything() {
   const user = auth.currentUser; if (!user) return;
   $("globalRefreshBtn").textContent = "갱신 중...";
@@ -117,13 +131,15 @@ async function refreshEverything() {
     $("portfolioList").innerHTML = listHtml || '<div style="text-align:center; color:var(--muted); padding:20px;">보유 주식 없음</div>';
     const finalTotal = cash + totalStockValue;
     $("totalAssetsText").textContent = money(finalTotal);
-    lastRefreshTime = Date.now(); updateTradeButtonStatus();
+    lastRefreshTime = Date.now(); 
+    updateTradeButtonStatus();
     await updateLeaderboard(finalTotal);
     await fetchHistory();
   } catch (e) { console.error(e); }
   $("globalRefreshBtn").textContent = "시세 갱신 ↻";
 }
 
+// 퀵 매도 기능
 window.quickSell = async (symbol) => {
   updateTradeButtonStatus(); if (document.querySelector('.btn-sell').disabled) return alert("시세 갱신 필요");
   $("qSymbol").value = symbol; await fetchQuote();
@@ -145,6 +161,7 @@ window.quickSell = async (symbol) => {
   }
 };
 
+// 인증 상태 감시
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     $("authView").classList.add("hidden"); $("dashView").classList.remove("hidden");
@@ -154,6 +171,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+// 이벤트 리스너
 document.addEventListener("DOMContentLoaded", () => {
   $("loginBtn").onclick = () => signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(() => $("authMsg").textContent = "로그인 실패");
   $("logoutBtn").onclick = () => signOut(auth);
