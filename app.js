@@ -28,8 +28,7 @@ function updateTradeButtonStatus() {
   const now = Date.now();
   const isFresh = (now - lastRefreshTime) < 3600000;
   document.querySelectorAll('#buyBtn, .btn-sell').forEach(btn => btn.disabled = !isFresh);
-  if (!isFresh) $("expireMsg").textContent = "⚠️ 시세 만료 (갱신 필요)";
-  else $("expireMsg").textContent = `시세 유효 (남은 시간: ${Math.ceil((3600000-(now-lastRefreshTime))/60000)}분)`;
+  $("expireMsg").textContent = isFresh ? `시세 유효 (${Math.ceil((3600000-(now-lastRefreshTime))/60000)}분 남음)` : "⚠️ 시세 만료 (갱신 필요)";
 }
 
 async function fetchQuote() {
@@ -40,59 +39,47 @@ async function fetchQuote() {
     const d = await r.json();
     if (d.ok) {
       currentSymbol = d.symbol; currentStockPrice = d.price;
-      $("qOut").innerHTML = `${d.symbol}: ${money(d.price)}`;
-    } else { $("qOut").textContent = "조회 실패"; }
-  } catch { $("qOut").textContent = "에러 발생"; }
+      $("qOutBox").style.display = "flex";
+      $("qSymbolText").textContent = d.symbol;
+      $("qPriceText").textContent = money(d.price);
+    } else { alert("조회 실패"); }
+  } catch { alert("에러 발생"); }
 }
 
 async function updateLeaderboard(totalAsset) {
   const user = auth.currentUser; if (!user) return;
-  try {
-    await setDoc(doc(db, "users", user.email), { totalAsset, lastActive: serverTimestamp() }, { merge: true });
-    await fetchRanking();
-  } catch (e) { console.error(e); }
+  await setDoc(doc(db, "users", user.email), { totalAsset, lastActive: serverTimestamp() }, { merge: true });
+  await fetchRanking();
 }
 
 async function fetchRanking() {
-  try {
-    const qSnap = await getDocs(collection(db, "users"));
-    let rankingData = [];
-    qSnap.forEach(doc => { if (doc.data().totalAsset) rankingData.push({ email: doc.id, ...doc.data() }); });
-    rankingData.sort((a, b) => b.totalAsset - a.totalAsset);
-    let html = "";
-    rankingData.slice(0, 10).forEach((u, i) => {
-      const isMe = u.email === auth.currentUser?.email;
-      html += `<div class="rank-item ${isMe ? 'rank-me' : ''}">
-        <span>${i+1}. ${u.email.split('@')[0]}</span>
-        <span style="font-weight:700;">${money(u.totalAsset)}</span>
-      </div>`;
-    });
-    $("rankingList").innerHTML = html || "데이터 없음";
-  } catch (e) { console.error(e); }
+  const qSnap = await getDocs(collection(db, "users"));
+  let data = [];
+  qSnap.forEach(doc => { if (doc.data().totalAsset) data.push({ id: doc.id, ...doc.data() }); });
+  data.sort((a, b) => b.totalAsset - a.totalAsset);
+  $("rankingList").innerHTML = data.slice(0, 10).map((u, i) => `
+    <div style="display:flex; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px; ${u.id === auth.currentUser?.email ? 'background:rgba(43,124,255,0.1); border-radius:8px;' : ''}">
+      <span>${i+1}. ${u.id.split('@')[0]}</span>
+      <b>${money(u.totalAsset)}</b>
+    </div>`).join('') || "데이터 없음";
 }
 
 async function fetchHistory() {
   const user = auth.currentUser; if (!user) return;
-  try {
-    const q = query(collection(db, "users", user.email, "history"), orderBy("date", "desc"), limit(10));
-    const snap = await getDocs(q);
-    let html = "";
-    snap.forEach(d => {
-      const h = d.data();
-      const isBuy = h.type === "BUY";
-      html += `<div style="padding:10px; border-bottom:1px solid var(--line); font-size:13px;">
-        <div style="display:flex; justify-content:space-between;">
-          <b style="color:${isBuy ? 'var(--up)' : 'var(--pri)'}">${isBuy ? '매수' : '매도'} | ${h.symbol}</b>
-          <span>${money(h.price)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; color:var(--muted); font-size:11px;">
-          <span>${h.qty}주</span>
-          <span>${h.date?.toDate().toLocaleString() || ""}</span>
-        </div>
-      </div>`;
-    });
-    $("historyList").innerHTML = html || "내역 없음";
-  } catch (e) { console.error(e); }
+  const q = query(collection(db, "users", user.email, "history"), orderBy("date", "desc"), limit(10));
+  const snap = await getDocs(q);
+  $("historyList").innerHTML = snap.docs.map(d => {
+    const h = d.data();
+    return `<div style="padding:8px 12px; border-bottom:1px solid var(--line); font-size:12px;">
+      <div style="display:flex; justify-content:space-between;">
+        <span style="color:${h.type==='BUY'?'var(--up)':'var(--pri)'}; font-weight:bold;">${h.type==='BUY'?'매수':'매도'} ${h.symbol}</span>
+        <span>${money(h.price)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; color:var(--muted); font-size:10px;">
+        <span>${h.qty}주</span><span>${h.date?.toDate().toLocaleTimeString() || ""}</span>
+      </div>
+    </div>`;
+  }).join('') || "내역 없음";
 }
 
 async function refreshEverything() {
@@ -106,7 +93,6 @@ async function refreshEverything() {
 
     const portSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
     let listHtml = ""; let totalStockValue = 0;
-
     for (const d of portSnap.docs) {
       const item = d.data(); let livePrice = 0;
       try {
@@ -119,11 +105,11 @@ async function refreshEverything() {
       listHtml += `
         <div class="portfolio-item">
           <div class="stock-info">
-            <b style="color:var(--pri); font-size:16px;">${item.symbol}</b>
-            <div class="stock-price-info">매수: ${money(avgPrice)} | 현재: ${money(livePrice)} <span class="${profitRate >= 0 ? 'profit-up' : 'profit-down'}">${profitRate}%</span></div>
+            <b style="color:var(--pri); font-size:15px;">${item.symbol}</b>
+            <div class="stock-price-info">매수 ${money(avgPrice)} | <span class="${profitRate>=0?'profit-up':'profit-down'}">${profitRate}%</span></div>
           </div>
-          <div style="display:flex; align-items:center; gap:12px;">
-            <div style="text-align:right;"><b style="color:#fff;">${item.qty}주</b><br><small style="color:var(--warn);">${money(livePrice * item.qty)}</small></div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="text-align:right;"><b style="color:#fff; font-size:14px;">${item.qty}주</b><br><small style="color:var(--warn);">${money(livePrice * item.qty)}</small></div>
             <button class="btn-sell" onclick="window.quickSell('${item.symbol}')">매도</button>
           </div>
         </div>`;
