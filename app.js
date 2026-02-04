@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, runTransaction, serverTimestamp, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, runTransaction, serverTimestamp, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
@@ -45,47 +45,53 @@ async function fetchQuote() {
   } catch { $("qOut").textContent = "에러 발생"; }
 }
 
-// 랭킹 데이터를 서버에 업데이트
 async function updateLeaderboard(totalAsset) {
-  const user = auth.currentUser;
-  if (!user) return;
+  const user = auth.currentUser; if (!user) return;
   try {
-    const userRef = doc(db, "users", user.email);
-    await setDoc(userRef, { 
-      totalAsset: totalAsset,
-      lastActive: serverTimestamp() 
-    }, { merge: true });
+    await setDoc(doc(db, "users", user.email), { totalAsset, lastActive: serverTimestamp() }, { merge: true });
     await fetchRanking();
-  } catch (e) { console.error("랭킹 갱신 실패:", e); }
+  } catch (e) { console.error(e); }
 }
 
-// 전체 사용자 랭킹 조회
 async function fetchRanking() {
   try {
     const qSnap = await getDocs(collection(db, "users"));
     let rankingData = [];
-    qSnap.forEach(doc => {
-      const data = doc.data();
-      if (data.totalAsset) {
-        rankingData.push({ email: doc.id, totalAsset: data.totalAsset });
-      }
-    });
-
+    qSnap.forEach(doc => { if (doc.data().totalAsset) rankingData.push({ email: doc.id, ...doc.data() }); });
     rankingData.sort((a, b) => b.totalAsset - a.totalAsset);
-
-    let rankHtml = "";
+    let html = "";
     rankingData.slice(0, 10).forEach((u, i) => {
       const isMe = u.email === auth.currentUser?.email;
-      rankHtml += `
-        <div class="rank-item ${isMe ? 'rank-me' : ''}">
-          <div style="display:flex; gap:12px; align-items:center;">
-            <span style="font-weight:800; color:${i < 3 ? 'var(--warn)' : 'var(--muted)'}; width:20px;">${i + 1}</span>
-            <span style="font-size:14px; ${isMe ? 'color:var(--pri); font-weight:bold;' : ''}">${u.email.split('@')[0]}</span>
-          </div>
-          <span style="font-weight:700;">${money(u.totalAsset)}</span>
-        </div>`;
+      html += `<div class="rank-item ${isMe ? 'rank-me' : ''}">
+        <span>${i+1}. ${u.email.split('@')[0]}</span>
+        <span style="font-weight:700;">${money(u.totalAsset)}</span>
+      </div>`;
     });
-    $("rankingList").innerHTML = rankHtml || '<div style="padding:20px; text-align:center;">데이터 없음</div>';
+    $("rankingList").innerHTML = html || "데이터 없음";
+  } catch (e) { console.error(e); }
+}
+
+async function fetchHistory() {
+  const user = auth.currentUser; if (!user) return;
+  try {
+    const q = query(collection(db, "users", user.email, "history"), orderBy("date", "desc"), limit(10));
+    const snap = await getDocs(q);
+    let html = "";
+    snap.forEach(d => {
+      const h = d.data();
+      const isBuy = h.type === "BUY";
+      html += `<div style="padding:10px; border-bottom:1px solid var(--line); font-size:13px;">
+        <div style="display:flex; justify-content:space-between;">
+          <b style="color:${isBuy ? 'var(--up)' : 'var(--pri)'}">${isBuy ? '매수' : '매도'} | ${h.symbol}</b>
+          <span>${money(h.price)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; color:var(--muted); font-size:11px;">
+          <span>${h.qty}주</span>
+          <span>${h.date?.toDate().toLocaleString() || ""}</span>
+        </div>
+      </div>`;
+    });
+    $("historyList").innerHTML = html || "내역 없음";
   } catch (e) { console.error(e); }
 }
 
@@ -102,25 +108,19 @@ async function refreshEverything() {
     let listHtml = ""; let totalStockValue = 0;
 
     for (const d of portSnap.docs) {
-      const item = d.data();
-      let livePrice = 0;
+      const item = d.data(); let livePrice = 0;
       try {
         const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(item.symbol)}`);
         const res = await r.json(); if (res.ok) livePrice = res.price;
       } catch {}
-
       totalStockValue += (livePrice * item.qty);
       const avgPrice = item.avgPrice || livePrice;
       const profitRate = avgPrice > 0 ? (((livePrice - avgPrice) / avgPrice) * 100).toFixed(2) : "0.00";
-      const profitClass = profitRate >= 0 ? "profit-up" : "profit-down";
-      const profitSign = profitRate >= 0 ? "+" : "";
-
       listHtml += `
         <div class="portfolio-item">
           <div class="stock-info">
             <b style="color:var(--pri); font-size:16px;">${item.symbol}</b>
-            <div class="stock-price-info">매수: ${money(avgPrice)}</div>
-            <div class="stock-price-info">현재: ${money(livePrice)} <span class="${profitClass}">${profitSign}${profitRate}%</span></div>
+            <div class="stock-price-info">매수: ${money(avgPrice)} | 현재: ${money(livePrice)} <span class="${profitRate >= 0 ? 'profit-up' : 'profit-down'}">${profitRate}%</span></div>
           </div>
           <div style="display:flex; align-items:center; gap:12px;">
             <div style="text-align:right;"><b style="color:#fff;">${item.qty}주</b><br><small style="color:var(--warn);">${money(livePrice * item.qty)}</small></div>
@@ -129,14 +129,11 @@ async function refreshEverything() {
         </div>`;
     }
     $("portfolioList").innerHTML = listHtml || '<div style="text-align:center; color:var(--muted); padding:20px;">보유 주식 없음</div>';
-    
-    const finalTotalAsset = cash + totalStockValue;
-    $("totalAssetsText").textContent = money(finalTotalAsset);
-    
-    lastRefreshTime = Date.now(); 
-    updateTradeButtonStatus();
-    await updateLeaderboard(finalTotalAsset); // 랭킹 업데이트
-
+    const finalTotal = cash + totalStockValue;
+    $("totalAssetsText").textContent = money(finalTotal);
+    lastRefreshTime = Date.now(); updateTradeButtonStatus();
+    await updateLeaderboard(finalTotal);
+    await fetchHistory();
   } catch (e) { console.error(e); }
   $("globalRefreshBtn").textContent = "시세 갱신 ↻";
 }
@@ -154,6 +151,8 @@ window.quickSell = async (symbol) => {
         if (sS.data().qty < q) throw "수량 부족";
         t.update(uRef, { cash: uS.data().cash + (currentStockPrice * q) });
         if (sS.data().qty == q) t.delete(sRef); else t.update(sRef, { qty: sS.data().qty - q });
+        const hRef = doc(collection(db, "users", auth.currentUser.email, "history"));
+        t.set(hRef, { type: "SELL", symbol, qty: parseInt(q), price: currentStockPrice, date: serverTimestamp() });
       });
       alert("매도 완료"); await refreshEverything();
     } catch(e) { alert(e); }
@@ -189,9 +188,11 @@ document.addEventListener("DOMContentLoaded", () => {
           if (sS.exists()) {
             const oldQty = sS.data().qty; const oldAvg = sS.data().avgPrice || currentStockPrice;
             const newQty = oldQty + parseInt(q);
-            const newAvg = ((oldAvg * oldQty) + (currentStockPrice * q)) / newQty;
+            const newAvg = ((oldAvg * oldQty) + (total)) / newQty;
             t.update(sRef, { qty: newQty, avgPrice: newAvg });
           } else t.set(sRef, { symbol: currentSymbol, qty: parseInt(q), avgPrice: currentStockPrice });
+          const hRef = doc(collection(db, "users", auth.currentUser.email, "history"));
+          t.set(hRef, { type: "BUY", symbol: currentSymbol, qty: parseInt(q), price: currentStockPrice, date: serverTimestamp() });
         });
         alert("매수 완료"); await refreshEverything();
       } catch(e) { alert(e); }
