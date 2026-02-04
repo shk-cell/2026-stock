@@ -13,16 +13,17 @@
     h1 { margin: 0 0 8px; font-size: 24px; }
     .muted { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
     label { display: block; margin-top: 16px; font-size: 12px; color: var(--pri); font-weight: 600; text-transform: uppercase; }
-    input { width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 12px; outline: none; font-size: 14px; }
     
+    /* 입력창 및 버튼 높이 40px 통일 */
+    input { width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 12px; outline: none; font-size: 14px; }
     .btn { height: 40px; border-radius: 10px; border: 0; color: white; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; font-size: 13px; }
     .btn:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
     
     .btn-buy { background: var(--up); width: 60px; }
     .btn-sell { background: var(--pri); min-width: 60px; height: 36px; border-radius: 8px; font-weight: 700; border: 0; color: white; cursor: pointer; }
     .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin-top: 10px; height: 44px; }
-
     .btn-outline { background: transparent; border: 1px solid var(--line); height: 32px; padding: 0 12px; font-size: 12px; border-radius: 8px; color: var(--muted); cursor: pointer; }
+
     .hidden { display: none !important; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
     .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
@@ -35,8 +36,7 @@
     .profit-up { color: var(--up); font-weight: bold; }
     .profit-down { color: var(--down); font-weight: bold; }
     
-    .notice-box { background: rgba(43, 124, 255, 0.05); border: 1px dashed var(--pri); padding: 12px; border-radius: 15px; margin-bottom: 20px; text-align: center; }
-    
+    /* 조회 결과 박스 디자인 */
     #qOutBox { margin-top: 10px; padding: 12px; background: #1a222c; border-radius: 12px; display: none; align-items: center; justify-content: space-between; border: 1px solid var(--line); }
     .list-container { background: #1a222c; border-radius: 16px; padding: 8px; margin-top: 10px; }
   </style>
@@ -59,7 +59,7 @@
           <button id="logoutBtn" class="btn-outline">로그아웃</button>
         </div>
 
-        <div class="notice-box">
+        <div style="background: rgba(43, 124, 255, 0.05); border: 1px dashed var(--pri); padding: 12px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
           <div id="expireMsg" style="font-size: 11px; color: var(--muted); margin-bottom: 8px;">시세를 갱신해 주세요.</div>
           <button id="globalRefreshBtn" class="btn btn-refresh">시세 갱신 ↻</button>
         </div>
@@ -71,7 +71,7 @@
 
         <label>주식 조회 및 매수</label>
         <div style="display:flex; gap:6px; margin-top:6px; align-items: center;">
-          <input id="qSymbol" placeholder="종목명 (예: TSLA)" style="flex: 1;" />
+          <input id="qSymbol" placeholder="종목명 (예: TSLA)" />
           <button id="qBtn" class="btn" style="width: 60px; background: #3a4452;">조회</button>
           <button id="buyBtn" class="btn btn-buy" disabled>매수</button>
         </div>
