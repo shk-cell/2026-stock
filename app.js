@@ -1,204 +1,94 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, runTransaction, serverTimestamp, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>부평중 모의투자</title>
+  <style>
+    :root { --bg: #0b0f14; --card: #121923; --line: #1e2a3a; --muted: #93a4b8; --txt: #eaf0f7; --pri: #2b7cff; --warn: #ffd479; --up: #ff4d4d; --down: #4d94ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); }
+    .wrap { max-width: 520px; margin: 60px auto; padding: 0 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    h1 { margin: 0 0 8px; font-size: 22px; line-height: 1.4; word-break: keep-all; }
+    .muted { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+    label { display: block; margin-top: 16px; font-size: 12px; color: var(--pri); font-weight: 600; text-transform: uppercase; }
+    
+    input { width: 100%; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 16px; outline: none; font-size: 15px; }
+    .btn { height: 40px; border-radius: 10px; border: 0; color: white; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    .btn:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
+    
+    .btn-buy { background: var(--up); width: 60px; }
+    .btn-sell { background: var(--pri); min-width: 60px; height: 36px; border-radius: 8px; font-weight: 700; border: 0; color: white; cursor: pointer; }
+    .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin-top: 10px; height: 44px; }
+    .btn-outline { background: transparent; border: 1px solid var(--line); height: 32px; padding: 0 12px; font-size: 12px; border-radius: 8px; color: var(--muted); cursor: pointer; }
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
-  authDomain: "stock-62c76.firebaseapp.com",
-  projectId: "stock-62c76",
-  storageBucket: "stock-62c76.firebasestorage.app",
-  messagingSenderId: "149071161310",
-  appId: "1:149071161310:web:79ebd6",
-};
+    .hidden { display: none !important; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+    .stat-label { font-size: 11px; color: var(--muted); }
+    .stat-value { font-size: 18px; font-weight: 800; margin-top: 4px; }
+    
+    .portfolio-item { background: #1e2a3a; padding: 14px; border-radius: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); }
+    #qOutBox { margin-top: 10px; padding: 12px; background: #1a222c; border-radius: 12px; display: none; align-items: center; justify-content: space-between; border: 1px solid var(--line); }
+    .list-container { background: #1a222c; border-radius: 16px; padding: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <section id="authView">
+        <h1 style="text-align: center; color: var(--pri);">부평중학교<br>모의 투자시뮬레이션</h1>
+        <div class="muted" style="text-align: center;">계정 정보를 입력하여 시작하세요.</div>
+        <input id="email" type="email" placeholder="이메일 아이디" style="margin-bottom:8px;" />
+        <input id="pw" type="password" placeholder="비밀번호" />
+        <button id="loginBtn" class="btn" style="width:100%; background:var(--pri); margin-top:20px; height:52px; font-size: 16px;">로그인</button>
+        <div id="authMsg" style="text-align:center; color:var(--warn); margin-top:10px;"></div>
+      </section>
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-const START_CASH = 70000;
-const QUOTE_ENDPOINT = "https://quote-ymhlxyctxq-uc.a.run.app"; 
-const $ = (id) => document.getElementById(id);
-const money = (v) => `$${Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-let currentStockPrice = 0;
-let currentSymbol = "";
-let lastRefreshTime = 0;
-
-function updateTradeButtonStatus() {
-  const now = Date.now();
-  const diff = now - lastRefreshTime;
-  const isFresh = diff < 3600000;
-  const timeLeft = Math.ceil((3600000 - diff) / 60000);
-  
-  document.querySelectorAll('#buyBtn, .btn-sell').forEach(btn => btn.disabled = !isFresh);
-  
-  if (isFresh) {
-    $("expireMsg").textContent = `(갱신 유효 시간 ${timeLeft}분 남음)`;
-    $("expireMsg").style.color = "var(--muted)";
-  } else {
-    $("expireMsg").textContent = "⚠️ 시세 만료 (매수/매도를 위해 갱신 필요)";
-    $("expireMsg").style.color = "var(--up)";
-  }
-}
-
-async function fetchQuote() {
-  const s = $("qSymbol").value.trim().toUpperCase();
-  if (!s) return;
-  $("qBtn").textContent = "...";
-  try {
-    const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(s)}`);
-    const d = await r.json();
-    if (d.ok) {
-      currentSymbol = d.symbol; 
-      currentStockPrice = d.price;
-      $("qOutBox").style.display = "flex";
-      $("qSymbolText").textContent = d.symbol;
-      $("qPriceText").textContent = money(d.price);
-    } else { 
-      alert("종목을 찾을 수 없습니다.");
-      $("qOutBox").style.display = "none";
-    }
-  } catch { alert("조회 중 오류 발생"); }
-  finally { $("qBtn").textContent = "조회"; }
-}
-
-async function updateLeaderboard(totalAsset) {
-  const user = auth.currentUser; if (!user) return;
-  await setDoc(doc(db, "users", user.email), { totalAsset, lastActive: serverTimestamp() }, { merge: true });
-  await fetchRanking();
-}
-
-async function fetchRanking() {
-  const qSnap = await getDocs(collection(db, "users"));
-  let data = [];
-  qSnap.forEach(doc => { if (doc.data().totalAsset) data.push({ id: doc.id, ...doc.data() }); });
-  data.sort((a, b) => b.totalAsset - a.totalAsset);
-  $("rankingList").innerHTML = data.slice(0, 10).map((u, i) => `
-    <div style="display:flex; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px; ${u.id === auth.currentUser?.email ? 'background:rgba(43,124,255,0.1); border-radius:8px;' : ''}">
-      <span>${i+1}. ${u.id.split('@')[0]}</span>
-      <b>${money(u.totalAsset)}</b>
-    </div>`).join('') || "데이터 없음";
-}
-
-async function fetchHistory() {
-  const user = auth.currentUser; if (!user) return;
-  const q = query(collection(db, "users", user.email, "history"), orderBy("date", "desc"), limit(10));
-  const snap = await getDocs(q);
-  $("historyList").innerHTML = snap.docs.map(d => {
-    const h = d.data();
-    return `<div style="padding:8px 12px; border-bottom:1px solid var(--line); font-size:12px;">
-      <div style="display:flex; justify-content:space-between;">
-        <span style="color:${h.type==='BUY'?'var(--up)':'var(--pri)'}; font-weight:bold;">${h.type==='BUY'?'매수':'매도'} ${h.symbol}</span>
-        <span>${money(h.price)}</span>
-      </div>
-      <div style="display:flex; justify-content:space-between; color:var(--muted); font-size:10px;">
-        <span>${h.qty}주</span><span>${h.date?.toDate().toLocaleTimeString() || ""}</span>
-      </div>
-    </div>`;
-  }).join('') || "내역 없음";
-}
-
-async function refreshEverything() {
-  const user = auth.currentUser; if (!user) return;
-  $("globalRefreshBtn").textContent = "갱신 중...";
-  try {
-    const userSnap = await getDoc(doc(db, "users", user.email));
-    const cash = userSnap.exists() ? userSnap.data().cash : START_CASH;
-    if (!userSnap.exists()) await setDoc(doc(db, "users", user.email), { cash: START_CASH });
-    $("cashText").textContent = money(cash);
-
-    const portSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
-    let listHtml = ""; let totalStockValue = 0;
-    for (const d of portSnap.docs) {
-      const item = d.data(); let livePrice = 0;
-      try {
-        const r = await fetch(`${QUOTE_ENDPOINT}?symbol=${encodeURIComponent(item.symbol)}`);
-        const res = await r.json(); if (res.ok) livePrice = res.price;
-      } catch {}
-      totalStockValue += (livePrice * item.qty);
-      const avgPrice = item.avgPrice || livePrice;
-      const profitRate = avgPrice > 0 ? (((livePrice - avgPrice) / avgPrice) * 100).toFixed(2) : "0.00";
-      listHtml += `
-        <div class="portfolio-item">
-          <div class="stock-info">
-            <b style="color:var(--pri); font-size:15px;">${item.symbol}</b>
-            <div class="stock-price-info">매수 ${money(avgPrice)} | <span class="${profitRate>=0?'profit-up':'profit-down'}">${profitRate}%</span></div>
+      <section id="dashView" class="hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 15px;">
+          <div>
+            <h1 id="userNickname" style="font-size:18px; margin:0;">로딩 중...</h1>
+            <div id="userEmail" style="font-size: 11px; color: var(--muted);"></div>
           </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <div style="text-align:right;"><b style="color:#fff; font-size:14px;">${item.qty}주</b><br><small style="color:var(--warn);">${money(livePrice * item.qty)}</small></div>
-            <button class="btn-sell" onclick="window.quickSell('${item.symbol}')">매도</button>
-          </div>
-        </div>`;
-    }
-    $("portfolioList").innerHTML = listHtml || '<div style="text-align:center; color:var(--muted); padding:20px;">보유 주식 없음</div>';
-    const finalTotal = cash + totalStockValue;
-    $("totalAssetsText").textContent = money(finalTotal);
-    lastRefreshTime = Date.now(); updateTradeButtonStatus();
-    await updateLeaderboard(finalTotal);
-    await fetchHistory();
-  } catch (e) { console.error(e); }
-  $("globalRefreshBtn").textContent = "시세 갱신 ↻";
-}
+          <button id="logoutBtn" class="btn-outline">로그아웃</button>
+        </div>
 
-window.quickSell = async (symbol) => {
-  updateTradeButtonStatus(); if (document.querySelector('.btn-sell').disabled) return alert("시세 갱신 필요");
-  $("qSymbol").value = symbol; await fetchQuote();
-  const q = prompt(`${symbol} 매도 수량`, "1");
-  if (q && parseInt(q) > 0) {
-    try {
-      await runTransaction(db, async (t) => {
-        const uRef = doc(db, "users", auth.currentUser.email);
-        const sRef = doc(db, "users", auth.currentUser.email, "portfolio", symbol);
-        const uS = await t.get(uRef); const sS = await t.get(sRef);
-        if (sS.data().qty < q) throw "수량 부족";
-        t.update(uRef, { cash: uS.data().cash + (currentStockPrice * q) });
-        if (sS.data().qty == q) t.delete(sRef); else t.update(sRef, { qty: sS.data().qty - q });
-        const hRef = doc(collection(db, "users", auth.currentUser.email, "history"));
-        t.set(hRef, { type: "SELL", symbol, qty: parseInt(q), price: currentStockPrice, date: serverTimestamp() });
-      });
-      alert("매도 완료"); await refreshEverything();
-    } catch(e) { alert(e); }
-  }
-};
+        <div style="background: rgba(43, 124, 255, 0.05); border: 1px dashed var(--pri); padding: 12px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
+          <div style="font-size: 12px; color: var(--txt); margin-bottom: 5px;">현재가를 반영해야 매수 / 매도가 가능합니다.</div>
+          <div id="expireMsg" style="font-size: 11px; color: var(--muted); margin-bottom: 8px;">(갱신 유효 시간 60분 남음)</div>
+          <button id="globalRefreshBtn" class="btn btn-refresh">시세 갱신 ↻</button>
+        </div>
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    $("authView").classList.add("hidden"); $("dashView").classList.remove("hidden");
-    $("userEmail").textContent = user.email; await refreshEverything();
-  } else {
-    $("authView").classList.remove("hidden"); $("dashView").classList.add("hidden");
-  }
-});
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">현금</div><div id="cashText" class="stat-value">$0.00</div></div>
+          <div class="stat-card"><div class="stat-label">총 자산</div><div id="totalAssetsText" class="stat-value">$0.00</div></div>
+        </div>
 
-document.addEventListener("DOMContentLoaded", () => {
-  $("loginBtn").onclick = () => signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(() => $("authMsg").textContent = "로그인 실패");
-  $("logoutBtn").onclick = () => signOut(auth);
-  $("qBtn").onclick = fetchQuote;
-  $("globalRefreshBtn").onclick = refreshEverything;
-  $("buyBtn").onclick = async () => {
-    updateTradeButtonStatus(); if ($("buyBtn").disabled) return;
-    const q = prompt(`${currentSymbol} 매수 수량`, "1");
-    if (q && parseInt(q) > 0) {
-      try {
-        await runTransaction(db, async (t) => {
-          const uRef = doc(db, "users", auth.currentUser.email);
-          const sRef = doc(db, "users", auth.currentUser.email, "portfolio", currentSymbol);
-          const uS = await t.get(uRef); const sS = await t.get(sRef);
-          const total = currentStockPrice * q;
-          if (uS.data().cash < total) throw "잔액 부족";
-          t.update(uRef, { cash: uS.data().cash - total });
-          if (sS.exists()) {
-            const oldQty = sS.data().qty; const oldAvg = sS.data().avgPrice || currentStockPrice;
-            const newQty = oldQty + parseInt(q);
-            const newAvg = ((oldAvg * oldQty) + (total)) / newQty;
-            t.update(sRef, { qty: newQty, avgPrice: newAvg });
-          } else t.set(sRef, { symbol: currentSymbol, qty: parseInt(q), avgPrice: currentStockPrice });
-          const hRef = doc(collection(db, "users", auth.currentUser.email, "history"));
-          t.set(hRef, { type: "BUY", symbol: currentSymbol, qty: parseInt(q), price: currentStockPrice, date: serverTimestamp() });
-        });
-        alert("매수 완료"); await refreshEverything();
-      } catch(e) { alert(e); }
-    }
-  };
-  setInterval(updateTradeButtonStatus, 60000);
-});
+        <label>주식 조회 및 매수</label>
+        <div style="display:flex; gap:6px; margin-top:6px; align-items: center;">
+          <input id="qSymbol" placeholder="종목명 (예: TSLA)" style="height:40px;" />
+          <button id="qBtn" class="btn" style="width: 60px; background: #3a4452;">조회</button>
+          <button id="buyBtn" class="btn btn-buy" disabled>매수</button>
+        </div>
+
+        <div id="qOutBox">
+          <span id="qSymbolText" style="color: var(--muted); font-size: 13px; font-weight: 600;">-</span>
+          <span id="qPriceText" style="color: var(--warn); font-size: 18px; font-weight: 800;">$0.00</span>
+        </div>
+
+        <label style="margin-top: 24px;">내 포트폴리오</label>
+        <div id="portfolioList" style="margin-top: 10px;"></div>
+
+        <label style="margin-top: 24px;">🏆 랭킹 (자산 순위)</label>
+        <div id="rankingList" class="list-container"></div>
+
+        <label style="margin-top: 24px;">🕒 최근 거래 내역</label>
+        <div id="historyList" class="list-container" style="max-height: 200px; overflow-y: auto;"></div>
+      </section>
+    </div>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
