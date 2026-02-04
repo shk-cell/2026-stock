@@ -36,6 +36,11 @@
     .profit-down { color: var(--down); font-weight: bold; }
     
     .notice-box { background: rgba(43, 124, 255, 0.05); border: 1px dashed var(--pri); padding: 15px; border-radius: 15px; margin-bottom: 24px; text-align: center; }
+    
+    /* 랭킹 스타일 */
+    .rank-item { display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+    .rank-item:last-child { border-bottom: 0; }
+    .rank-me { background: rgba(43, 124, 255, 0.1); border-radius: 12px; }
   </style>
 </head>
 <body>
@@ -77,6 +82,11 @@
 
         <label style="margin-top: 24px;">내 포트폴리오</label>
         <div id="portfolioList" style="margin-top: 10px;"></div>
+
+        <label style="margin-top: 32px;">🏆 자산 랭킹 (TOP 10)</label>
+        <div id="rankingList" style="margin-top: 10px; background: #1a222c; border-radius: 16px; padding: 8px;">
+          <div style="text-align:center; padding: 20px; color: var(--muted);">랭킹 불러오는 중...</div>
+        </div>
       </section>
     </div>
   </div>
