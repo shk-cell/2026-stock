@@ -8,7 +8,7 @@
     :root { --bg: #0b0f14; --card: #121923; --line: #1e2a3a; --muted: #93a4b8; --txt: #eaf0f7; --pri: #2b7cff; --warn: #ffd479; --up: #ff4d4d; --down: #4d94ff; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); }
-    .wrap { max-width: 520px; margin: 60px auto; padding: 0 16px; }
+    .wrap { max-width: 520px; margin: 40px auto; padding: 0 16px; }
     .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
     h1 { margin: 0 0 8px; font-size: 22px; line-height: 1.4; text-align: center; color: var(--pri); }
     .muted { color: var(--muted); font-size: 14px; margin-bottom: 20px; text-align: center; }
@@ -28,12 +28,13 @@
     .stat-label { font-size: 11px; color: var(--muted); }
     .stat-value { font-size: 18px; font-weight: 800; margin-top: 4px; }
 
-    /* 안내판 스타일 수정 */
+    /* 안내판 스타일 */
     .stock-guide { margin-top: 15px; padding: 16px; background: #1a222c; border-radius: 12px; border: 1px solid var(--line); font-size: 12px; line-height: 1.6; }
     .guide-title { color: var(--warn); font-weight: bold; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
-    .guide-sec { margin-bottom: 10px; }
+    .guide-sec { margin-bottom: 8px; }
     .guide-sec b { color: var(--txt); }
-    .search-hint { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--pri); font-style: italic; }
+    .guide-warn { font-size: 11px; color: var(--up); margin-top: 5px; }
+    .guide-info { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; border-top: 1px solid var(--line); padding-top: 8px; }
 
     .portfolio-item { background: #1e2a3a; padding: 14px; border-radius: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); }
     #qOutBox { margin-top: 10px; padding: 12px; background: #1a222c; border-radius: 12px; display: none; align-items: center; justify-content: space-between; border: 1px solid var(--line); }
@@ -53,24 +54,24 @@
       </section>
 
       <section id="dashView" class="hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <div>
             <h1 id="userNickname" style="font-size:18px; margin:0; text-align: left;">로딩 중...</h1>
             <div id="userEmail" style="font-size: 11px; color: var(--muted);"></div>
           </div>
-          <button id="logoutBtn" style="background:transparent; border:1px solid var(--line); color:var(--muted); padding:5px 10px; border-radius:8px; cursor:pointer;">로그아웃</button>
+          <button id="logoutBtn" style="background:transparent; border:1px solid var(--line); color:var(--muted); padding:5px 10px; border-radius:8px; cursor:pointer; font-size:11px;">로그아웃</button>
         </div>
 
         <button id="globalRefreshBtn" class="btn btn-refresh">시세 갱신 ↻</button>
-        <div id="expireMsg" style="font-size: 11px; color: var(--muted); text-align: center; margin-top: 5px;">시세 갱신 버튼을 눌러야 거래가 가능합니다.</div>
+        <div id="expireMsg" style="font-size: 11px; color: var(--muted); text-align: center; margin-top: 5px;">(갱신을 해야 실시간 거래가 가능합니다)</div>
 
         <div class="stat-grid" style="margin-top:20px;">
-          <div class="stat-card"><div class="stat-label">현금</div><div id="cashText" class="stat-value">$0.00</div></div>
+          <div class="stat-card"><div class="stat-label">현금 (USD)</div><div id="cashText" class="stat-value">$0.00</div></div>
           <div class="stat-card"><div class="stat-label">총 자산</div><div id="totalAssetsText" class="stat-value">$0.00</div></div>
         </div>
 
         <label>주식 조회 및 매수</label>
-        <div style="display:flex; gap:6px; margin-top:6px; align-items: center;">
+        <div style="display:flex; gap:6px; margin-top:6px;">
           <input id="qSymbol" placeholder="종목 코드를 입력하세요" style="height:40px;" />
           <button id="qBtn" class="btn" style="width: 50px; background: #3a4452;">조회</button>
           <button id="buyBtn" class="btn btn-buy" disabled>매수</button>
@@ -78,23 +79,18 @@
 
         <div class="stock-guide">
           <div class="guide-title">💡 주요 종목 코드 안내</div>
-          
           <div class="guide-sec">
-            🇺🇸 <b>미국 주식 (알파벳 입력)</b><br>
-            구글: GOOGL / 엔비디아: NVDA / 테슬라: TSLA / 애플: AAPL
+            🇺🇸 <b>미국 주식:</b> 구글(GOOGL), 엔비디아(NVDA), 테슬라(TSLA), 애플(AAPL)
           </div>
-
           <div class="guide-sec">
-            🇰🇷 <b>한국 주식 (번호 + .ks / .kq 입력)</b><br>
-            삼성전자: 005930.ks / 현대차: 005380.ks / 에코프로: 086520.kq
+            🇰🇷 <b>한국 주식:</b> 삼성전자(005930.ks), 현대차(005380.ks), JYP(035900.kq)
           </div>
-
-          <div style="font-size: 11px; color: var(--up);">
-            ⚠️ 주의: 한국 주식은 반드시 번호 뒤에 .ks(코스피) 또는 .kq(코스닥)를 붙여야 조회가 됩니다!
+          <div class="guide-warn">
+            ⚠️ 한국 주식은 반드시 번호 뒤에 .ks 또는 .kq를 붙여주세요!
           </div>
-
-          <div class="search-hint">
-            🔍 종목명이나 코드를 모를 때는 검색을 통해 알아보세요.
+          <div class="guide-info">
+            ※ 한국 주식은 실시간 환율을 반영한 달러($) 가격으로 자동 변환됩니다.<br>
+            🔍 종목명을 모를 때는 검색을 통해 코드를 알아내보세요!
           </div>
         </div>
 
@@ -103,14 +99,11 @@
           <span id="qPriceText" style="color: var(--warn); font-size: 18px; font-weight: 800;">$0.00</span>
         </div>
 
-        <label style="margin-top: 24px;">🏆 실시간 랭킹 (TOP 20)</label>
-        <div id="rankingList" class="list-container" style="max-height: 250px; overflow-y: auto;"></div>
+        <label style="margin-top: 24px;">🏆 실시간 랭킹</label>
+        <div id="rankingList" class="list-container"></div>
 
         <label style="margin-top: 24px;">내 포트폴리오</label>
         <div id="portfolioList"></div>
-
-        <label style="margin-top: 24px;">🕒 거래 내역</label>
-        <div id="historyList" class="list-container" style="max-height: 150px; overflow-y: auto;"></div>
       </section>
     </div>
   </div>
