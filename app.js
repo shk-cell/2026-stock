@@ -109,37 +109,40 @@ async function sellStock(sym, currentPrice) {
 }
 
 async function refreshData() {
-  const user = auth.currentUser; if(!user) return;
-  const uSnap = await getDoc(doc(db, "users", user.email));
-  const uData = uSnap.data();
-  $("userNickname").textContent = uData.nickname || user.email.split('@')[0];
-  $("cashText").textContent = money(uData.cash);
+  const user = auth.currentUser; if(!user) return; //
+  const uSnap = await getDoc(doc(db, "users", user.email)); //
+  const uData = uSnap.data(); //
+  $("userNickname").textContent = uData.nickname || user.email.split('@')[0]; //
+  $("cashText").textContent = money(uData.cash); //
   
-  let total = uData.cash;
-  const pSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
+  let total = uData.cash; //
+  const pSnap = await getDocs(collection(db, "users", user.email, "portfolio")); //
   let pHtml = "";
+  
   pSnap.forEach(d => {
     const item = d.data();
-    const avg = item.avgPrice || item.lastPrice;
-    const cur = item.lastPrice; 
-    const rate = ((cur - avg) / avg * 100).toFixed(2);
+    const avg = item.avgPrice || item.lastPrice; //
+    const cur = item.lastPrice; //
+    const rate = ((cur - avg) / avg * 100).toFixed(2); //
     
-    // 수익률에 따른 색상 및 기호 조건 설정
+    // 수익률 색상 및 기호 설정
     const color = rate > 0 ? "var(--up)" : (rate < 0 ? "var(--down)" : "var(--muted)");
     const sign = rate > 0 ? "+" : ""; 
     
-    total += (item.qty * cur);
+    total += (item.qty * cur); //
     
+    // 한 줄에 구매 | 현재 | 수익률이 모두 나오도록 수정
     pHtml += `<div class="item-flex">
       <div style="flex:1;">
         <b style="font-size:15px;">${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
         <span style="font-size:12px; color:var(--muted);">구매: ${money(avg)}</span> | 
         <span style="font-size:12px; color:var(--warn);">현재: ${money(cur)}</span> | 
-        <b style="color:${color}; font-size:12px;">${sign}${rate}%</b>
+        <span style="color:${color}; font-size:12px; font-weight:bold;">${sign}${rate}%</span>
       </div>
       <button onclick="window.sellStock('${d.id}', ${cur})" class="btn btn-trade btn-sell">매도</button>
     </div>`;
   });
+
   $("portfolioList").innerHTML = pHtml || "보유 없음";
   $("totalAssetsText").textContent = money(total);
   await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
