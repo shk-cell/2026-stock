@@ -109,29 +109,29 @@ async function sellStock(sym, currentPrice) {
 }
 
 async function refreshData() {
-  const user = auth.currentUser; if(!user) return; //
-  const uSnap = await getDoc(doc(db, "users", user.email)); //
-  const uData = uSnap.data(); //
-  $("userNickname").textContent = uData.nickname || user.email.split('@')[0]; //
-  $("cashText").textContent = money(uData.cash); //
+  const user = auth.currentUser; if(!user) return;
+  const uSnap = await getDoc(doc(db, "users", user.email));
+  const uData = uSnap.data();
+  $("userNickname").textContent = uData.nickname || user.email.split('@')[0];
+  $("cashText").textContent = money(uData.cash);
   
-  let total = uData.cash; //
-  const pSnap = await getDocs(collection(db, "users", user.email, "portfolio")); //
+  let total = uData.cash;
+  const pSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
   let pHtml = "";
   
   pSnap.forEach(d => {
     const item = d.data();
-    const avg = item.avgPrice || item.lastPrice; //
-    const cur = item.lastPrice; //
-    const rate = ((cur - avg) / avg * 100).toFixed(2); //
+    const avg = item.avgPrice || item.lastPrice;
+    const cur = item.lastPrice;
+    const rate = ((cur - avg) / avg * 100).toFixed(2);
     
     // 수익률 색상 및 기호 설정
     const color = rate > 0 ? "var(--up)" : (rate < 0 ? "var(--down)" : "var(--muted)");
     const sign = rate > 0 ? "+" : ""; 
     
-    total += (item.qty * cur); //
+    total += (item.qty * cur);
     
-    // 한 줄에 구매 | 현재 | 수익률이 모두 나오도록 수정
+    // 한 줄 레이아웃: 구매 | 현재 | 수익률
     pHtml += `<div class="item-flex">
       <div style="flex:1;">
         <b style="font-size:15px;">${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
@@ -142,6 +142,25 @@ async function refreshData() {
       <button onclick="window.sellStock('${d.id}', ${cur})" class="btn btn-trade btn-sell">매도</button>
     </div>`;
   });
+  
+  $("portfolioList").innerHTML = pHtml || "보유 없음";
+  $("totalAssetsText").textContent = money(total);
+  await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
+
+  // 실시간 랭킹 및 히스토리 업데이트 (기존 로직 유지)
+  const rSnap = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
+  let rHtml = ""; let rank = 1;
+  rSnap.forEach(d => rHtml += `<div class="item-flex"><span>${rank++}. ${d.data().nickname || d.id.split('@')[0]}</span><b>${money(d.data().totalAsset)}</b></div>`);
+  $("rankingList").innerHTML = rHtml;
+
+  const hSnap = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("time", "desc"), limit(10)));
+  let hHtml = "";
+  hSnap.forEach(d => {
+    const h = d.data();
+    hHtml += `<div class="item-flex" style="font-size:12px;"><span>${h.type === '매수'?'🔴':'🔵'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
+  });
+  $("transactionList").innerHTML = hHtml || "내역 없음";
+}
 
   $("portfolioList").innerHTML = pHtml || "보유 없음";
   $("totalAssetsText").textContent = money(total);
