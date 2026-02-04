@@ -131,7 +131,7 @@ async function refreshData() {
     
     total += (item.qty * cur);
     
-    // 한 줄 레이아웃: 구매 | 현재 | 수익률
+    // 수정된 한 줄 레이아웃
     pHtml += `<div class="item-flex">
       <div style="flex:1;">
         <b style="font-size:15px;">${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
@@ -143,25 +143,6 @@ async function refreshData() {
     </div>`;
   });
   
-  $("portfolioList").innerHTML = pHtml || "보유 없음";
-  $("totalAssetsText").textContent = money(total);
-  await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
-
-  // 실시간 랭킹 및 히스토리 업데이트 (기존 로직 유지)
-  const rSnap = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
-  let rHtml = ""; let rank = 1;
-  rSnap.forEach(d => rHtml += `<div class="item-flex"><span>${rank++}. ${d.data().nickname || d.id.split('@')[0]}</span><b>${money(d.data().totalAsset)}</b></div>`);
-  $("rankingList").innerHTML = rHtml;
-
-  const hSnap = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("time", "desc"), limit(10)));
-  let hHtml = "";
-  hSnap.forEach(d => {
-    const h = d.data();
-    hHtml += `<div class="item-flex" style="font-size:12px;"><span>${h.type === '매수'?'🔴':'🔵'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
-  });
-  $("transactionList").innerHTML = hHtml || "내역 없음";
-}
-
   $("portfolioList").innerHTML = pHtml || "보유 없음";
   $("totalAssetsText").textContent = money(total);
   await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
