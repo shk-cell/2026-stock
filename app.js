@@ -69,7 +69,7 @@ async function fetchRanking() {
   let data = [];
   qSnap.forEach(doc => { if (doc.data().totalAsset) data.push({ id: doc.id, ...doc.data() }); });
   data.sort((a, b) => b.totalAsset - a.totalAsset);
-  $("rankingList").innerHTML = data.slice(0, 10).map((u, i) => `
+  $("rankingList").innerHTML = data.slice(0, 50).map((u, i) => `
     <div style="display:flex; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px; ${u.id === auth.currentUser?.email ? 'background:rgba(43,124,255,0.1); border-radius:8px;' : ''}">
       <span>${i+1}. ${u.nickname || u.id.split('@')[0]}</span>
       <b>${money(u.totalAsset)}</b>
