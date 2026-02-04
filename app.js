@@ -112,6 +112,8 @@ async function refreshData() {
   const user = auth.currentUser; if(!user) return;
   const uSnap = await getDoc(doc(db, "users", user.email));
   const uData = uSnap.data();
+  if(!uData) return;
+
   $("userNickname").textContent = uData.nickname || user.email.split('@')[0];
   $("cashText").textContent = money(uData.cash);
   
@@ -125,13 +127,11 @@ async function refreshData() {
     const cur = item.lastPrice;
     const rate = ((cur - avg) / avg * 100).toFixed(2);
     
-    // 수익률 색상 및 기호 설정
     const color = rate > 0 ? "var(--up)" : (rate < 0 ? "var(--down)" : "var(--muted)");
     const sign = rate > 0 ? "+" : ""; 
     
     total += (item.qty * cur);
     
-    // 수정된 한 줄 레이아웃
     pHtml += `<div class="item-flex">
       <div style="flex:1;">
         <b style="font-size:15px;">${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
@@ -161,14 +161,33 @@ async function refreshData() {
   $("transactionList").innerHTML = hHtml || "내역 없음";
 }
 
-$("loginBtn").onclick = () => signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(()=>alert("실패"));
+$("loginBtn").onclick = () => signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(()=>alert("로그인 실패"));
 $("logoutBtn").onclick = () => signOut(auth);
 $("qBtn").onclick = fetchQuote;
 $("buyBtn").onclick = buyStock;
 $("globalRefreshBtn").onclick = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
 window.sellStock = sellStock;
-onAuthStateChanged(auth, (u) => {
-  if(u) { $("authView").classList.add("hidden"); $("dashView").classList.remove("hidden"); refreshData(); }
-  else { $("authView").classList.remove("hidden"); $("dashView").classList.add("hidden"); }
+
+onAuthStateChanged(auth, async (u) => {
+  if (u) {
+    const uRef = doc(db, "users", u.email);
+    const uSnap = await getDoc(uRef);
+    if (!uSnap.exists()) {
+      await setDoc(uRef, {
+        email: u.email,
+        nickname: u.email.split('@')[0],
+        cash: 10000,
+        totalAsset: 10000,
+        createdAt: serverTimestamp()
+      });
+    }
+    $("authView").classList.add("hidden");
+    $("dashView").classList.remove("hidden");
+    refreshData();
+  } else {
+    $("authView").classList.remove("hidden");
+    $("dashView").classList.add("hidden");
+  }
 });
+
 setInterval(updateTimer, 1000);
