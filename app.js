@@ -21,22 +21,17 @@ const money = (v) => `$${Number(v || 0).toLocaleString(undefined, {minimumFracti
 
 let curPrice = 0, curSym = "", lastRefresh = 0;
 
-// [1] 타이머
 function updateTimer() {
   const diff = Date.now() - lastRefresh;
   const isExp = lastRefresh === 0 || diff >= 3600000;
   document.querySelectorAll('#buyBtn, .btn-sell').forEach(b => b.disabled = isExp);
-  if (isExp) {
-    $("expireMsg").textContent = lastRefresh === 0 ? "시세 갱신 필요" : "⚠️ 시세 만료";
-    $("expireMsg").style.color = "var(--up)";
-  } else {
+  if (isExp) $("expireMsg").textContent = "시세 갱신 필요";
+  else {
     const rem = 3600000 - diff;
-    $("expireMsg").textContent = `거래가능: ${Math.floor(rem/60000)}분 ${Math.floor((rem%60000)/1000)}초`;
-    $("expireMsg").style.color = "var(--warn)";
+    $("expireMsg").textContent = `거래 가능: ${Math.floor(rem/60000)}분 ${Math.floor((rem%60000)/1000)}초`;
   }
 }
 
-// [2] 조회 (환율)
 async function fetchQuote() {
   const s = $("qSymbol").value.trim().toUpperCase();
   if(!s) return;
@@ -56,15 +51,13 @@ async function fetchQuote() {
       $("qSymbolText").textContent = curSym;
       $("qPriceText").textContent = money(p);
     } else alert("코드 확인");
-  } catch { alert("실패"); }
+  } catch { alert("조회 실패"); }
   finally { $("qBtn").textContent = "조회"; }
 }
 
-// [3] 매수 (수량입력 + 평단가 + 내역저장)
 async function buyStock() {
   const user = auth.currentUser; if(!user || !curSym || curPrice <= 0) return;
-  const qtyInput = prompt(`[${curSym}] 몇 주를 매수할까요?`, "1");
-  const qty = parseInt(qtyInput);
+  const qty = parseInt(prompt(`[${curSym}] 매수 수량:`, "1"));
   if(isNaN(qty) || qty <= 0) return;
 
   try {
@@ -92,31 +85,29 @@ async function buyStock() {
   } catch(e) { alert(e); }
 }
 
-// [4] 매도 (수량입력 + 내역저장)
-async function sellStock(sym, p) {
+async function sellStock(sym, currentPrice) {
   const user = auth.currentUser;
   const pRef = doc(db, "users", user.email, "portfolio", sym);
   const pSnap = await getDoc(pRef);
   const mQty = pSnap.data().qty;
-  const qty = parseInt(prompt(`[${sym}] 몇 주를 매도할까요? (보유:${mQty})`, "1"));
+  const qty = parseInt(prompt(`[${sym}] 매도 수량 (보유:${mQty}):`, "1"));
   if(isNaN(qty) || qty <= 0 || qty > mQty) return;
 
   try {
     await runTransaction(db, async (tx) => {
       const uRef = doc(db, "users", user.email);
       const uSnap = await tx.get(uRef);
-      tx.update(uRef, { cash: uSnap.data().cash + (p * qty) });
+      tx.update(uRef, { cash: uSnap.data().cash + (currentPrice * qty) });
       if(mQty === qty) tx.delete(pRef);
       else tx.update(pRef, { qty: mQty - qty });
       tx.set(doc(collection(db, "users", user.email, "history")), {
-        type: "매도", symbol: sym, qty, price: p, time: serverTimestamp()
+        type: "매도", symbol: sym, qty, price: currentPrice, time: serverTimestamp()
       });
     });
     refreshData();
   } catch(e) { alert(e); }
 }
 
-// [5] 새로고침 (수익률 +/- 표시 로직 유지)
 async function refreshData() {
   const user = auth.currentUser; if(!user) return;
   const uSnap = await getDoc(doc(db, "users", user.email));
@@ -124,7 +115,7 @@ async function refreshData() {
   $("userNickname").textContent = uData.nickname || user.email.split('@')[0];
   $("cashText").textContent = money(uData.cash);
   
-  let totalAsset = uData.cash;
+  let total = uData.cash;
   const pSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
   let pHtml = "";
   pSnap.forEach(d => {
@@ -133,34 +124,37 @@ async function refreshData() {
     const cur = item.lastPrice; 
     const rate = ((cur - avg) / avg * 100).toFixed(2);
     const color = rate > 0 ? "var(--up)" : (rate < 0 ? "var(--down)" : "var(--muted)");
-    totalAsset += (item.qty * cur);
+    total += (item.qty * cur);
+    
     pHtml += `<div class="item-flex">
-      <div><b>${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
-      <small style="color:${color}">${rate > 0 ? '+':''}${rate}% (평단:${money(avg)})</small></div>
-      <button onclick="window.sellStock('${d.id}', ${cur})" class="btn btn-sell">매도</button>
+      <div style="flex:1;">
+        <b style="font-size:15px;">${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
+        <span style="font-size:12px; color:var(--muted);">구매: ${money(avg)}</span> | 
+        <span style="font-size:12px; color:var(--warn);">현재: ${money(cur)}</span><br>
+        <b style="color:${color}; font-size:14px;">${rate > 0 ? '+':''}${rate}% 수익중</b>
+      </div>
+      <button onclick="window.sellStock('${d.id}', ${cur})" class="btn btn-trade btn-sell">매도</button>
     </div>`;
   });
-  $("portfolioList").innerHTML = pHtml || "기록 없음";
-  $("totalAssetsText").textContent = money(totalAsset);
-  await setDoc(doc(db, "users", user.email), { totalAsset }, { merge: true });
+  $("portfolioList").innerHTML = pHtml || "보유 없음";
+  $("totalAssetsText").textContent = money(total);
+  await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
 
-  // 랭킹
   const rSnap = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
   let rHtml = ""; let rank = 1;
   rSnap.forEach(d => rHtml += `<div class="item-flex"><span>${rank++}. ${d.data().nickname || d.id.split('@')[0]}</span><b>${money(d.data().totalAsset)}</b></div>`);
   $("rankingList").innerHTML = rHtml;
 
-  // 거래내역 (10개)
   const hSnap = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("time", "desc"), limit(10)));
   let hHtml = "";
   hSnap.forEach(d => {
     const h = d.data();
     hHtml += `<div class="item-flex" style="font-size:12px;"><span>${h.type === '매수'?'🔴':'🔵'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
   });
-  $("transactionList").innerHTML = hHtml || "기록 없음";
+  $("transactionList").innerHTML = hHtml || "내역 없음";
 }
 
-$("loginBtn").onclick = () => signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(()=>alert("로그인 실패"));
+$("loginBtn").onclick = () => signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(()=>alert("실패"));
 $("logoutBtn").onclick = () => signOut(auth);
 $("qBtn").onclick = fetchQuote;
 $("buyBtn").onclick = buyStock;
