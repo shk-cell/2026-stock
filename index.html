@@ -3,84 +3,82 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>부평중 모의투자</title>
+  <title>부평중 모의투자 시스템</title>
   <style>
     :root { --bg: #0b0f14; --card: #121923; --line: #1e2a3a; --muted: #93a4b8; --txt: #eaf0f7; --pri: #2b7cff; --warn: #ffd479; --up: #ff4d4d; --down: #4d94ff; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); }
-    .wrap { max-width: 520px; margin: 40px auto; padding: 0 16px; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); line-height: 1.5; }
+    .wrap { max-width: 520px; margin: 20px auto; padding: 0 16px; }
     .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
-    h1 { margin: 0 0 8px; font-size: 22px; line-height: 1.4; text-align: center; color: var(--pri); }
-    .muted { color: var(--muted); font-size: 14px; margin-bottom: 20px; text-align: center; }
-    label { display: block; margin-top: 24px; font-size: 12px; color: var(--pri); font-weight: 600; text-transform: uppercase; }
+    h1 { margin: 0 0 8px; font-size: 20px; text-align: center; color: var(--pri); }
+    .muted { color: var(--muted); font-size: 13px; text-align: center; margin-bottom: 20px; }
+    label { display: block; margin-top: 24px; font-size: 12px; color: var(--pri); font-weight: 700; text-transform: uppercase; }
     
-    input { width: 100%; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 16px; outline: none; font-size: 14px; }
-    .btn { height: 40px; border-radius: 10px; border: 0; color: white; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    input { width: 100%; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: #0e141d; color: var(--txt); padding: 0 16px; outline: none; margin-bottom: 8px; }
+    .btn { height: 44px; border-radius: 10px; border: 0; color: white; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .btn:disabled { opacity: 0.2; cursor: not-allowed; }
     
     .btn-buy { background: var(--up); width: 60px; }
-    .btn-sell { background: var(--pri); min-width: 60px; height: 36px; border-radius: 8px; font-weight: 700; border: 0; color: white; }
-    .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin-top: 10px; height: 44px; }
+    .btn-sell { background: var(--pri); padding: 0 15px; height: 32px; border-radius: 8px; font-size: 12px; }
+    .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin: 10px 0; }
     
     .hidden { display: none !important; }
-    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px; }
     .stat-card { background: #1a222c; border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
     .stat-label { font-size: 11px; color: var(--muted); }
-    .stat-value { font-size: 18px; font-weight: 800; margin-top: 4px; }
+    .stat-value { font-size: 17px; font-weight: 800; margin-top: 4px; }
 
-    .portfolio-item, .history-item { background: #1e2a3a; padding: 14px; border-radius: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); }
-    .history-item { font-size: 13px; }
-    #qOutBox { margin-top: 10px; padding: 12px; background: #1a222c; border-radius: 12px; display: none; align-items: center; justify-content: space-between; border: 1px solid var(--line); }
-    .list-container { background: #1a222c; border-radius: 16px; padding: 8px; margin-top: 10px; max-height: 200px; overflow-y: auto; }
+    .list-box { background: #1a222c; border-radius: 16px; padding: 12px; margin-top: 8px; border: 1px solid var(--line); max-height: 250px; overflow-y: auto; }
+    .item-flex { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #243142; }
+    
+    #qOutBox { margin-top: 10px; padding: 15px; background: #1e2a3a; border-radius: 12px; display: none; align-items: center; justify-content: space-between; border-left: 4px solid var(--warn); }
+    #expireMsg { font-size: 14px; color: var(--warn); font-family: monospace; font-weight: bold; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 8px; display: inline-block; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <section id="authView">
-        <h1>부평중학교 모의투자</h1>
-        <div class="muted">계정 정보를 입력하여 시작하세요.</div>
-        <input id="email" type="email" placeholder="이메일 아이디" style="margin-bottom:8px;" />
+        <h1>부평중 모의투자</h1>
+        <div class="muted">로그인하여 투자를 시작하세요.</div>
+        <input id="email" type="email" placeholder="이메일" />
         <input id="pw" type="password" placeholder="비밀번호" />
-        <button id="loginBtn" class="btn" style="width:100%; background:var(--pri); margin-top:20px; height:52px; font-size: 16px;">로그인</button>
+        <button id="loginBtn" class="btn" style="width:100%; background:var(--pri);">로그인</button>
       </section>
 
       <section id="dashView" class="hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <div><h1 id="userNickname" style="font-size:18px; margin:0;">...</h1><div id="userEmail" style="font-size: 11px; color: var(--muted);"></div></div>
-          <button id="logoutBtn" style="background:transparent; border:1px solid var(--line); color:var(--muted); padding:5px 10px; border-radius:8px; cursor:pointer; font-size:11px;">로그아웃</button>
+        <div style="display: flex; justify-content: space-between;">
+          <div><b id="userNickname" style="font-size:18px;">-</b><div id="userEmail" style="font-size:11px; color:var(--muted);"></div></div>
+          <button id="logoutBtn" style="background:none; border:1px solid var(--line); color:var(--muted); font-size:11px; padding:4px 8px; border-radius:6px; cursor:pointer;">로그아웃</button>
         </div>
 
-        <button id="globalRefreshBtn" class="btn btn-refresh">시세 및 랭킹 동기화 ↻</button>
-        <div style="background: rgba(43, 124, 255, 0.05); border-radius: 12px; padding: 12px; margin-top: 8px; text-align: center; border: 1px dashed var(--pri);">
-          <div id="expireMsg" style="font-size: 15px; color: var(--warn); font-family: monospace; font-weight: bold;">남은 시간: 60:00</div>
-        </div>
+        <button id="globalRefreshBtn" class="btn btn-refresh">시세 및 랭킹 업데이트 ↻</button>
+        <div style="text-align:center;"><div id="expireMsg">남은 시간: 60:00</div></div>
 
-        <div class="stat-grid" style="margin-top:20px;">
+        <div class="stat-grid">
           <div class="stat-card"><div class="stat-label">현금 (USD)</div><div id="cashText" class="stat-value">$0.00</div></div>
           <div class="stat-card"><div class="stat-label">총 자산</div><div id="totalAssetsText" class="stat-value">$0.00</div></div>
         </div>
 
-        <label>주식 조회 및 매수</label>
+        <label>주식 조회</label>
         <div style="display:flex; gap:6px; margin-top:6px;">
-          <input id="qSymbol" placeholder="종목 코드 (예: NVDA)" style="height:40px;" />
-          <button id="qBtn" class="btn" style="width: 50px; background: #3a4452;">조회</button>
+          <input id="qSymbol" placeholder="종목코드 (NVDA, 005930.KS)" style="margin:0; flex:1;" />
+          <button id="qBtn" class="btn" style="width:60px; background:#3a4452;">조회</button>
           <button id="buyBtn" class="btn btn-buy" disabled>매수</button>
         </div>
 
         <div id="qOutBox">
-          <span id="qSymbolText" style="color: var(--muted); font-size: 13px; font-weight: 600;">-</span>
-          <span id="qPriceText" style="color: var(--warn); font-size: 18px; font-weight: 800;">$0.00</span>
+          <div><div id="qSymbolText" style="font-size:12px; color:var(--muted); font-weight:bold;">-</div><div id="qPriceText" style="font-size:20px; font-weight:800; color:var(--warn);">$0.00</div></div>
         </div>
 
-        <label>🏆 실시간 랭킹</label>
-        <div id="rankingList" class="list-container"></div>
+        <label>🏆 랭킹 (Top 10)</label>
+        <div id="rankingList" class="list-box"></div>
 
-        <label>내 포트폴리오</label>
-        <div id="portfolioList"></div>
+        <label>📦 내 포트폴리오 (수익률)</label>
+        <div id="portfolioList" class="list-box"></div>
 
-        <label>🕒 최근 거래 내역</label>
-        <div id="transactionList" class="list-container"></div>
+        <label>🕒 최근 거래 내역 (10개)</label>
+        <div id="transactionList" class="list-box"></div>
       </section>
     </div>
   </div>
