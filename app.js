@@ -15,9 +15,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// 서버 주소 설정 (서울 리전)
+// [업데이트] 방금 배포 성공한 서울 서버 주소로 변경되었습니다.
 const TRADE_URL = "https://asia-northeast3-stock-62c76.cloudfunctions.net/tradeStock";
-const API = "https://quote-ymhlxyctxq-uc.a.run.app"; 
+const QUOTE_URL = "https://asia-northeast3-stock-62c76.cloudfunctions.net/quote";
+
 const $ = (id) => document.getElementById(id);
 const money = (v) => `$${Number(v || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
 
@@ -37,12 +38,13 @@ function updateTimer() {
 }
 setInterval(updateTimer, 1000);
 
+// [수정] 서울 서버의 quote 함수를 직접 호출하도록 변경 (CORS 해결)
 async function fetchQuote() {
   const sym = $("qSymbol").value.trim().toUpperCase();
   if (!sym) return;
   $("qBtn").disabled = true;
   try {
-    const res = await fetch(`${API}/quote?symbol=${sym}`);
+    const res = await fetch(`${QUOTE_URL}?symbol=${sym}`);
     const data = await res.json();
     if (data.ok) {
       curSym = data.symbol; curPrice = data.price;
@@ -55,7 +57,7 @@ async function fetchQuote() {
   } catch (e) { alert("시세 호출 실패"); } finally { $("qBtn").disabled = false; }
 }
 
-// 매수/매도 공통 호출 함수 (CORS 해결 핵심)
+// [수정] 매매 API 호출 함수
 async function callTradeAPI(payload) {
   const user = auth.currentUser;
   if (!user) throw new Error("로그인이 필요합니다.");
@@ -65,11 +67,9 @@ async function callTradeAPI(payload) {
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
     body: JSON.stringify({ data: payload })
   });
-  if (!res.ok) {
-    const errData = await res.json();
-    throw new Error(errData.error || "서버 통신 실패");
-  }
-  return await res.json();
+  const result = await res.json();
+  if (!res.ok) throw new Error(result.error || "서버 통신 실패");
+  return result;
 }
 
 async function buyStock() {
@@ -107,7 +107,8 @@ async function refreshData() {
     let pHtml = "", stockTotal = 0;
     for (const s of pSnaps.docs) {
       const d = s.data(); if (d.qty <= 0) continue;
-      const res = await fetch(`${API}/quote?symbol=${s.id}`);
+      // 포트폴리오의 현재가도 서울 서버를 통해 가져옵니다.
+      const res = await fetch(`${QUOTE_URL}?symbol=${s.id}`);
       const quote = await res.json();
       const price = quote.ok ? quote.price : 0;
       const val = price * d.qty; stockTotal += val;
@@ -132,7 +133,6 @@ async function refreshData() {
   } catch (e) { console.error(e); }
 }
 
-// 이벤트 바인딩
 if($("loginBtn")) $("loginBtn").onclick = () => {
   signInWithEmailAndPassword(auth, $("email").value, $("pw").value).catch(e => alert("로그인 실패: " + e.message));
 };
