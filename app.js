@@ -123,13 +123,11 @@ async function refreshData() {
       const buyP = d.price || price; 
       const profitRate = ((price - buyP) / buyP) * 100;
       
-      // 수익률 색상 및 0% 회색 처리
       let color = "var(--zero)";
       let sign = "";
       if (profitRate > 0) { color = "var(--up)"; sign = "+"; }
       else if (profitRate < 0) { color = "var(--down)"; sign = ""; }
 
-      // 포트폴리오 한 줄 표기 (구매 | 현재 | 수익률)
       pHtml += `
         <div class="item-flex">
           <div style="flex:1; overflow:hidden;">
@@ -151,9 +149,24 @@ async function refreshData() {
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
     await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
 
-    // 랭킹 및 내역 업데이트 생략 (기존 로직 동일)
+    // 사라졌던 랭킹 로직 복구
+    const rSnaps = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
+    let rHtml = ""; rSnaps.docs.forEach((d, i) => {
+      const rd = d.data(); rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
+    });
+    if($("rankingList")) $("rankingList").innerHTML = rHtml;
+
+    // 사라졌던 내역 로직 복구
+    const hSnaps = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10)));
+    let hHtml = ""; hSnaps.docs.forEach(doc => {
+      const h = doc.data(); 
+      hHtml += `<div class="item-flex" style="font-size:12px;"><span>${(h.type === 'BUY' || h.type === '매수') ? '🔴 매수' : '🔵 매도'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
+    });
+    if($("transactionList")) $("transactionList").innerHTML = hHtml || "내역 없음";
   } catch (e) { console.error(e); }
 }
+
+const globalRefresh = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
 
 if($("loginBtn")) {
   $("loginBtn").onclick = async () => {
@@ -165,9 +178,6 @@ if($("loginBtn")) {
 if($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
 if($("qBtn")) $("qBtn").onclick = fetchQuote;
 if($("buyBtn")) $("buyBtn").onclick = buyStock;
-
-// 현재 시세 업데이트 함수
-const globalRefresh = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
 if($("globalRefreshBtn")) $("globalRefreshBtn").onclick = globalRefresh;
 window.sellStock = sellStock;
 
@@ -175,8 +185,7 @@ onAuthStateChanged(auth, (u) => {
   if (u) {
     $("authView").classList.add("hidden"); 
     $("dashView").classList.remove("hidden");
-    // [추가] 로그인 시 자동으로 시세 업데이트 버튼 동작
-    globalRefresh(); 
+    globalRefresh(); // 로그인 시 자동 실행
   } else { 
     $("authView").classList.remove("hidden"); 
     $("dashView").classList.add("hidden"); 
