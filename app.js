@@ -15,7 +15,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const functions = getFunctions(app);
+// app.js 상단
+const functions = getFunctions(app, "us-central1"); // 리전 명시
 const tradeStock = httpsCallable(functions, 'tradeStock');
 
 const API = "https://quote-ymhlxyctxq-uc.a.run.app"; 
