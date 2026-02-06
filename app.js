@@ -33,6 +33,7 @@ function updateTimer() {
 }
 setInterval(updateTimer, 1000);
 
+// [수정] 환율 정보를 가져오고 화면 멘트에만 숫자를 넣어주는 함수
 async function getExchangeRate() {
   try {
     const res = await fetch(`${QUOTE_URL}?symbol=USDKRW=X`);
@@ -45,6 +46,7 @@ async function getExchangeRate() {
   }
 }
 
+// [수정] 주식 조회 시 한국 주식이면 달러로 환산
 async function fetchQuote() {
   const sym = $("qSymbol").value.trim().toUpperCase();
   if (!sym) return;
@@ -55,7 +57,6 @@ async function fetchQuote() {
     if (data.ok) {
       const rate = await getExchangeRate();
       let p = data.price;
-      // 한국 주식 판단 및 환산
       if (sym.includes(".KS") || sym.includes(".KQ") || data.currency === "KRW") {
         p = p / rate;
       }
@@ -103,8 +104,21 @@ async function sellStock(sym, currentPrice) {
 async function refreshData() {
   const user = auth.currentUser; if (!user) return;
   try {
-    const uSnap = await getDoc(doc(db, "users", user.email));
-    if (!uSnap.exists()) return;
+    const userRef = doc(db, "users", user.email);
+    let uSnap = await getDoc(userRef);
+
+    // [중요] 접속 시 데이터가 없으면 자동으로 7만 달러 초기화 및 지급
+    if (!uSnap.exists()) {
+      await setDoc(userRef, {
+        cash: 70000,
+        totalAsset: 70000,
+        nickname: user.email.split('@')[0],
+        createdAt: new Date()
+      });
+      uSnap = await getDoc(userRef);
+      alert("신규 계정 초기 자금 $70,000가 지급되었습니다.");
+    }
+    
     const userData = uSnap.data();
     const rate = await getExchangeRate();
 
@@ -119,6 +133,7 @@ async function refreshData() {
       const res = await fetch(`${QUOTE_URL}?symbol=${s.id}`);
       const quote = await res.json();
       let price = quote.ok ? quote.price : 0;
+      // 포트폴리오에서도 한국 주식이면 달러로 환산
       if (s.id.includes(".KS") || s.id.includes(".KQ") || quote.currency === "KRW") {
         price = price / rate;
       }
@@ -147,16 +162,14 @@ async function refreshData() {
 
     const total = (userData.cash || 0) + stockTotal;
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
-    await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
+    await setDoc(userRef, { totalAsset: total }, { merge: true });
 
-    // 랭킹 업데이트
     const rSnaps = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
     let rHtml = ""; rSnaps.docs.forEach((d, i) => {
       const rd = d.data(); rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
     });
     if($("rankingList")) $("rankingList").innerHTML = rHtml;
 
-    // 내역 업데이트 (문법 오류 수정 완료)
     const hSnaps = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10)));
     let hHtml = ""; hSnaps.docs.forEach(doc => {
       const h = doc.data(); 
@@ -173,10 +186,11 @@ if($("loginBtn")) {
   $("loginBtn").onclick = async () => {
     const em = $("email").value.trim();
     const pw = $("pw").value.trim();
+    if(!em || !pw) return alert("이메일과 비밀번호를 입력하세요.");
     try { 
       await signInWithEmailAndPassword(auth, em, pw); 
     } catch(e) { 
-      alert("로그인 실패: 이메일 또는 비밀번호를 확인하세요."); 
+      alert("로그인 실패: 계정 정보를 확인하세요."); 
     }
   };
 }
