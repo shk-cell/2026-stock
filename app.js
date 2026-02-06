@@ -33,14 +33,21 @@ function updateTimer() {
 }
 setInterval(updateTimer, 1000);
 
+// [중요] 실시간 환율을 가져오고 화면 멘트 옆에 업데이트하는 함수
 async function getExchangeRate() {
   try {
     const res = await fetch(`${QUOTE_URL}?symbol=USDKRW=X`);
     const data = await res.json();
-    return (data.ok && data.price) ? data.price : 1465; 
-  } catch (e) { return 1465; }
+    const rate = (data.ok && data.price) ? data.price : 1465; 
+    // 화면 멘트 업데이트
+    if($("currentRateText")) $("currentRateText").textContent = `(현재 환율: ${rate.toLocaleString()}원)`;
+    return rate;
+  } catch (e) { 
+    return 1465; 
+  }
 }
 
+// [수정] 주식 검색 시 한국 주식이면 즉시 달러로 변환
 async function fetchQuote() {
   const sym = $("qSymbol").value.trim().toUpperCase();
   if (!sym) return;
@@ -49,15 +56,21 @@ async function fetchQuote() {
     const res = await fetch(`${QUOTE_URL}?symbol=${sym}`);
     const data = await res.json();
     if (data.ok) {
+      const rate = await getExchangeRate();
       let p = data.price;
-      if (data.currency === "KRW") {
-        const rate = await getExchangeRate();
+      
+      // 한국 주식(.KS 또는 .KQ)이거나 통화가 KRW인 경우 환율 적용
+      if (sym.includes(".KS") || sym.includes(".KQ") || data.currency === "KRW") {
         p = p / rate;
       }
-      curSym = data.symbol; curPrice = p;
+      
+      curSym = data.symbol; 
+      curPrice = p; // 달러로 환산된 가격 저장
+
       if($("qOutBox")) $("qOutBox").style.display = "flex";
       if($("qSymbolText")) $("qSymbolText").textContent = curSym;
       if($("qPriceText")) $("qPriceText").textContent = money(curPrice);
+      
       lastRefresh = Date.now();
       updateTimer();
     } else { alert("종목을 찾을 수 없습니다."); }
@@ -81,6 +94,7 @@ async function buyStock() {
   const qty = parseInt(prompt(`[${curSym}] 매수 수량:`, "1"));
   if(isNaN(qty) || qty <= 0) return;
   try {
+    // 이미 달러로 환산된 curPrice를 보냄
     const result = await callTradeAPI({ type: "BUY", symbol: curSym, qty: qty, price: curPrice });
     if(result.data.success) { alert("매수 완료!"); refreshData(); }
   } catch(e) { alert("매수 실패"); }
@@ -102,16 +116,10 @@ async function refreshData() {
     if (!uSnap.exists()) return;
     const userData = uSnap.data();
 
-    // 환율 정보 가져오기 및 멘트 업데이트
+    // 환율 정보 가져오기 (화면 멘트 업데이트 포함)
     const rate = await getExchangeRate();
-    if($("currentRateText")) {
-      $("currentRateText").textContent = `(현재 환율: ${rate.toLocaleString()}원)`;
-    }
 
-    if($("userNickname")) {
-      $("userNickname").textContent = `${user.email} (${userData.nickname || '사용자'})`;
-    }
-    
+    if($("userNickname")) $("userNickname").textContent = `${user.email} (${userData.nickname || '사용자'})`;
     if($("cashText")) $("cashText").textContent = money(userData.cash);
 
     const pSnaps = await getDocs(collection(db, "users", user.email, "portfolio"));
@@ -121,8 +129,12 @@ async function refreshData() {
       const d = s.data(); if (d.qty <= 0) continue;
       const res = await fetch(`${QUOTE_URL}?symbol=${s.id}`);
       const quote = await res.json();
+      
       let price = quote.ok ? quote.price : 0;
-      if (quote.currency === "KRW") price = price / rate;
+      // [수정] 포트폴리오 출력 시에도 한국 주식이면 달러로 변환
+      if (s.id.includes(".KS") || s.id.includes(".KQ") || quote.currency === "KRW") {
+        price = price / rate;
+      }
 
       const val = price * d.qty; stockTotal += val;
       const buyP = d.price || price; 
@@ -154,16 +166,18 @@ async function refreshData() {
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
     await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
 
+    // 랭킹 업데이트
     const rSnaps = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
     let rHtml = ""; rSnaps.docs.forEach((d, i) => {
       const rd = d.data(); rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
     });
     if($("rankingList")) $("rankingList").innerHTML = rHtml;
 
-    const hSnaps = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10)));
+    // 내역 업데이트
+    const hSnaps = await getDocs(query(collection(db, \"users\", user.email, \"history\"), orderBy(\"timestamp\", \"desc\"), limit(10)));
     let hHtml = ""; hSnaps.docs.forEach(doc => {
       const h = doc.data(); 
-      hHtml += `<div class="item-flex" style="font-size:12px;"><span>${(h.type === 'BUY' || h.type === '매수') ? '🔴 매수' : '🔵 매도'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
+      hHtml += `<div class="item-flex" style="font-size:12px;"><span>${(h.type === 'BUY' || h.type === '매수') ? '🔴 매수' : '🔵 모도'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
     });
     if($("transactionList")) $("transactionList").innerHTML = hHtml || "내역 없음";
   } catch (e) { console.error(e); }
@@ -175,11 +189,7 @@ if($("loginBtn")) {
   $("loginBtn").onclick = async () => {
     const em = $("email").value.trim();
     const pw = $("pw").value.trim();
-    try { 
-      await signInWithEmailAndPassword(auth, em, pw); 
-    } catch(e) { 
-      alert("로그인 실패: 이메일 또는 비밀번호를 확인하세요."); 
-    }
+    try { await signInWithEmailAndPassword(auth, em, pw); } catch(e) { alert("로그인 실패"); }
   };
 }
 if($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
