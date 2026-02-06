@@ -24,15 +24,14 @@ const money = (v) => `$${Number(v || 0).toLocaleString(undefined, {minimumFracti
 
 let curPrice = 0, curSym = "", lastRefresh = 0;
 
-// 타이머 업데이트 (HTML의 expireMsg ID 사용)
+// 타이머 업데이트
 function updateTimer() {
   const msgElem = $("expireMsg");
   if (!msgElem) return;
 
   const diff = Date.now() - lastRefresh;
-  const isExp = lastRefresh === 0 || diff >= 3600000; // 1시간 기준
+  const isExp = lastRefresh === 0 || diff >= 3600000;
 
-  // 매수 버튼 상태 제어
   if($("buyBtn")) $("buyBtn").disabled = isExp || !curSym;
 
   if (isExp) {
@@ -46,14 +45,12 @@ function updateTimer() {
 }
 setInterval(updateTimer, 1000);
 
-// 시세 조회 (HTML의 qSymbol, qSymbolText, qPriceText ID 사용)
+// 시세 조회
 async function fetchQuote() {
   const sym = $("qSymbol").value.trim().toUpperCase();
   if (!sym) return;
   
-  lastRefresh = Date.now();
   $("qBtn").disabled = true;
-  
   try {
     const res = await fetch(`${API}/quote?symbol=${sym}`);
     const data = await res.json();
@@ -61,9 +58,11 @@ async function fetchQuote() {
       curSym = data.symbol;
       curPrice = data.price;
       
+      if($("qOutBox")) $("qOutBox").style.display = "flex";
       if($("qSymbolText")) $("qSymbolText").textContent = curSym;
       if($("qPriceText")) $("qPriceText").textContent = money(curPrice);
-      if($("buyBtn")) $("buyBtn").disabled = false;
+      lastRefresh = Date.now();
+      updateTimer();
     } else {
       alert("종목을 찾을 수 없습니다.");
     }
@@ -74,7 +73,7 @@ async function fetchQuote() {
   }
 }
 
-// 매수 함수 (서버 호출 방식)
+// 매수 (서버 호출)
 async function buyStock() {
   const user = auth.currentUser;
   if(!user || !curSym || curPrice <= 0) return;
@@ -96,13 +95,13 @@ async function buyStock() {
       refreshData();
     }
   } catch(e) { 
-    alert("매수 실패: " + e.message); 
+    alert("매수 실패: " + (e.message || e)); 
   } finally {
     $("buyBtn").disabled = false;
   }
 }
 
-// 매도 함수 (서버 호출 방식)
+// 매도 (서버 호출)
 async function sellStock(sym, currentPrice) {
   const user = auth.currentUser;
   const qty = parseInt(prompt(`[${sym}] 매도 수량:`, "1"));
@@ -121,11 +120,11 @@ async function sellStock(sym, currentPrice) {
       refreshData();
     }
   } catch(e) { 
-    alert("매도 실패: " + e.message); 
+    alert("매도 실패: " + (e.message || e)); 
   }
 }
 
-// 데이터 갱신 (HTML ID: cashText, totalAssetsText, userNickname, userEmail 등)
+// 데이터 새로고침
 async function refreshData() {
   const user = auth.currentUser;
   if (!user) return;
@@ -136,12 +135,10 @@ async function refreshData() {
     if (!uSnap.exists()) return;
     const userData = uSnap.data();
 
-    // 상단 정보 업데이트
     if($("userNickname")) $("userNickname").textContent = userData.nickname || user.email.split('@')[0];
     if($("userEmail")) $("userEmail").textContent = user.email;
     if($("cashText")) $("cashText").textContent = money(userData.cash);
 
-    // 포트폴리오 계산
     const pCol = collection(db, "users", user.email, "portfolio");
     const pSnaps = await getDocs(pCol);
     let pHtml = "", stockTotal = 0;
@@ -157,91 +154,77 @@ async function refreshData() {
       stockTotal += val;
       
       pHtml += `
-        <div class="portfolio-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid var(--line);">
-          <div>
-            <div style="font-weight:bold;">${s.id}</div>
-            <div style="font-size:12px; color:var(--muted);">${d.qty}주 보유</div>
+        <div class="item-flex">
+          <div style="flex:1;">
+            <b style="font-size:15px;">${s.id}</b> <small style="color:var(--muted)">${d.qty}주</small><br>
+            <span style="font-size:12px; color:var(--warn);">현재가: ${money(price)}</span>
           </div>
-          <div style="text-align:right;">
-            <div style="font-weight:bold;">${money(val)}</div>
-            <button onclick="sellStock('${s.id}', ${price})" class="btn-sell" style="padding:2px 8px; font-size:11px; background:var(--up); color:white; border:none; border-radius:4px; cursor:pointer;">매도</button>
-          </div>
-        </div>
-      `;
+          <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell">매도</button>
+        </div>`;
     }
-    if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "<div style='padding:20px; text-align:center; color:var(--muted);'>보유 주식이 없습니다.</div>";
+    if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "보유 없음";
     
     const finalTotalAsset = (userData.cash || 0) + stockTotal;
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(finalTotalAsset);
-    
-    // 총자산 업데이트
     await setDoc(uRef, { totalAsset: finalTotalAsset }, { merge: true });
 
-    // 랭킹 표시
     const qRanking = query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10));
     const rSnaps = await getDocs(qRanking);
     let rHtml = "";
     rSnaps.docs.forEach((d, i) => {
       const rd = d.data();
-      rHtml += `
-        <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid var(--line); ${d.id === user.email ? 'background:rgba(43,124,255,0.1);' : ''}">
-          <span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span>
-          <span style="font-weight:bold;">${money(rd.totalAsset)}</span>
-        </div>`;
+      rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
     });
     if($("rankingList")) $("rankingList").innerHTML = rHtml;
 
-    // 거래 내역 표시
     const qHistory = query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10));
     const hSnaps = await getDocs(qHistory);
     let hHtml = "";
     hSnaps.docs.forEach(doc => {
       const h = doc.data();
       const typeLabel = (h.type === 'BUY' || h.type === '매수') ? '🔴 매수' : '🔵 매도';
-      hHtml += `
-        <div style="display:flex; justify-content:space-between; font-size:12px; padding:6px 0; border-bottom:1px solid var(--line);">
-          <span>${typeLabel} ${h.symbol}</span>
-          <span>${h.qty}주 (${money(h.price)})</span>
-        </div>`;
+      hHtml += `<div class="item-flex" style="font-size:12px;"><span>${typeLabel} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
     });
-    if($("transactionList")) $("transactionList").innerHTML = hHtml || "<div style='text-align:center; padding:10px; color:var(--muted);'>내역 없음</div>";
-
-  } catch (e) {
-    console.error("Data Refresh Error:", e);
-  }
+    if($("transactionList")) $("transactionList").innerHTML = hHtml || "내역 없음";
+  } catch (e) { console.error(e); }
 }
 
-// 이벤트 바인딩
-$("loginBtn").onclick = () => {
-  const email = $("email").value;
-  const pw = $("pw").value;
-  signInWithEmailAndPassword(auth, email, pw).catch(e => alert("로그인 실패: " + e.message));
-};
-$("logoutBtn").onclick = () => signOut(auth);
-$("qBtn").onclick = fetchQuote;
-$("buyBtn").onclick = buyStock;
-$("refreshBtn").onclick = () => { lastRefresh = Date.now(); refreshData(); };
+// [핵심] 이벤트 바인딩 - 안전장치 추가
+if($("loginBtn")) {
+  $("loginBtn").onclick = () => {
+    const email = $("email").value;
+    const pw = $("pw").value;
+    if(!email || !pw) return alert("입력창을 확인하세요.");
+    signInWithEmailAndPassword(auth, email, pw).catch(e => alert("로그인 실패: " + e.message));
+  };
+}
+if($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
+if($("qBtn")) $("qBtn").onclick = fetchQuote;
+if($("buyBtn")) $("buyBtn").onclick = buyStock;
+if($("globalRefreshBtn")) {
+  $("globalRefreshBtn").onclick = () => { 
+    lastRefresh = Date.now(); 
+    refreshData(); 
+    updateTimer(); 
+  };
+}
 window.sellStock = sellStock;
 
-// 상태 변경 감지
 onAuthStateChanged(auth, async (u) => {
   if (u) {
     const uRef = doc(db, "users", u.email);
     const uSnap = await getDoc(uRef);
     if (!uSnap.exists()) {
       await setDoc(uRef, {
-        email: u.email,
-        nickname: u.email.split('@')[0],
-        cash: 70000,
-        totalAsset: 70000,
-        createdAt: serverTimestamp()
+        email: u.email, nickname: u.email.split('@')[0],
+        cash: 70000, totalAsset: 70000, createdAt: serverTimestamp()
       });
     }
-    $("authView").style.display = "none";
-    $("dashView").style.display = "block";
+    $("authView").classList.add("hidden");
+    $("dashView").classList.remove("hidden");
     refreshData();
   } else {
-    $("authView").style.display = "block";
-    $("dashView").style.display = "none";
+    $("authView").classList.remove("hidden");
+    $("dashView").classList.add("hidden");
   }
 });
