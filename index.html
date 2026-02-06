@@ -40,6 +40,13 @@
     }
     h1 { margin: 0 0 8px; font-size: 20px; text-align: center; color: var(--pri); }
     label { display: block; margin-top: 24px; font-size: 12px; color: var(--pri); font-weight: 700; text-transform: uppercase; }
+    
+    /* 입력창 및 버튼 그룹 스타일 수정 */
+    .trade-input-group {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
     input { 
       width: 100%; 
       height: 44px; 
@@ -53,10 +60,13 @@
     .btn { height: 44px; border-radius: 10px; border: 0; color: white; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
     .btn:hover { filter: brightness(1.1); }
     .btn:disabled { opacity: 0.2; cursor: not-allowed; }
-    .btn-trade { width: 70px; font-size: 14px; flex-shrink: 0; }
+    
+    /* 버튼 사이즈 통일 (조회/매수 동일 너비) */
+    .btn-action { width: 80px; font-size: 14px; flex-shrink: 0; }
     .btn-buy { background: var(--up); }
     .btn-sell { background: var(--pri); }
     .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin: 10px 0; }
+    
     .hidden { display: none !important; }
     .guide-box { background: rgba(26, 34, 44, 0.8); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 10px; font-size: 12px; line-height: 1.6; }
     .stat-card { background: rgba(26, 34, 44, 0.8); border: 1px solid var(--line); border-radius: 16px; padding: 14px; flex: 1; }
@@ -106,24 +116,25 @@
         </div>
 
         <label>주식 조회 및 거래</label>
-        <div style="display:flex; gap:6px; margin-top:6px;">
+        <div class="trade-input-group">
           <input id="qSymbol" placeholder="종목코드 입력" style="flex:1;" />
-          <button id="qBtn" class="btn" style="width:60px; background:#3a4452;">조회</button>
-          <button id="buyBtn" class="btn btn-trade btn-buy" disabled>매수</button>
+          <button id="qBtn" class="btn btn-action" style="background:#3a4452;">조회</button>
+          <button id="buyBtn" class="btn btn-action btn-buy" disabled>매수</button>
         </div>
 
         <div class="guide-box">
-          <div style="color:var(--pri); font-weight:bold; margin-bottom:8px; border-bottom:1px solid var(--line); padding-bottom:5px;">
-            ※ 한국주식은 현재 원화환율을 반영하여 자동으로 달러가격으로 전환됩니다.
-            <span id="currentRateText" style="color:var(--warn);">(현재 환율: 불러오는 중...)</span>
-          </div>
           <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력<br>
           - 예: 애플: <b>AAPL</b>, 테슬라: <b>TSLA</b>, 엔비디아: <b>NVDA</b><br>
           <span style="color:var(--warn); font-size: 11px;">※ 미 증시 개장: 23:30 ~ 06:00 (한국시간)</span><br><br>
 
           <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS / .KQ</b> 붙이기<br>
           - 예: 삼성전자: <b>005930.KS</b>, 에코프로: <b>086520.KQ</b><br>
-          <span style="color:var(--warn); font-size: 11px;">※ 한 증시 개장: 09:00 ~ 15:30 (평일)</span>
+          <span style="color:var(--warn); font-size: 11px;">※ 한 증시 개장: 09:00 ~ 15:30 (평일)</span><br><br>
+
+          <div style="color:var(--pri); font-weight:bold; padding-top:8px; border-top:1px solid var(--line);">
+            ※ 한국주식은 현재 원화환율을 반영하여 자동으로 달러가격으로 전환됩니다.
+            <span id="currentRateText" style="color:var(--warn);">(현재 환율: 불러오는 중...)</span>
+          </div>
         </div>
 
         <div id="qOutBox">
