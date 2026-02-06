@@ -109,7 +109,7 @@ async function refreshData() {
     const userRef = doc(db, "users", user.email);
     let uSnap = await getDoc(userRef);
 
-    // 1. 신규 유저 자산 지급 로직 (기존 유지)
+    // 1. 신규 유저 자산 지급 및 초기화
     if (!uSnap.exists()) {
       const initialData = {
         cash: 70000,
@@ -123,9 +123,9 @@ async function refreshData() {
     }
     
     const userData = uSnap.data();
-    const rate = await getExchangeRate(); // 현재 환율 가져오기
+    const rate = await getExchangeRate(); // 실시간 환율
 
-    // 기본 정보 표시
+    // 상단 UI 업데이트
     if($("userNickname")) $("userNickname").textContent = `${user.email} (${userData.nickname || '사용자'})`;
     if($("cashText")) $("cashText").textContent = money(userData.cash);
 
@@ -134,41 +134,47 @@ async function refreshData() {
     let pHtml = "";
     let stockTotal = 0;
 
-    // [개선] 모든 종목의 시세를 병렬로 요청하여 속도 향상
+    // [개선] 모든 종목 시세를 한꺼번에 요청 (속도 향상)
     const portfolioPromises = pSnaps.docs.map(async (s) => {
       const d = s.data();
       if (d.qty <= 0) return null;
 
-      let price = 0;
+      let currentPrice = 0;
       try {
-        // 시세 API 호출 (주소와 symbol 확인 필)
         const res = await fetch(`${QUOTE_URL}?symbol=${encodeURIComponent(s.id)}`);
         const quote = await res.json();
         
         if (quote && quote.ok) {
-          price = Number(quote.price);
-          // 한국 주식 판단 로직 개선
-          const isKorean = s.id.includes(".KS") || s.id.includes(".KQ") || quote.currency === "KRW";
-          if (isKorean) {
-            price = price / rate; // 달러로 변환
+          currentPrice = Number(quote.price);
+          // 한국 주식일 경우 달러로 변환
+          if (s.id.includes(".KS") || s.id.includes(".KQ") || quote.currency === "KRW") {
+            currentPrice = currentPrice / rate;
           }
-        } else {
-          // 시세 호출 실패 시 DB에 저장된 매수가를 임시로 보여줌
-          price = d.price || 0;
         }
       } catch (e) {
-        console.error(`${s.id} 시세 갱신 실패:`, e);
-        price = d.price || 0;
+        console.error(`${s.id} 시세 호출 에러:`, e);
       }
 
-      const val = price * d.qty;
-      const buyP = d.price || price;
-      const profitRate = buyP > 0 ? ((price - buyP) / buyP) * 100 : 0;
+      // [핵심 수정] DB에 저장된 매수가(d.price)를 사용. 덮어쓰기 방지.
+      const buyP = d.price; 
+      const val = currentPrice * d.qty;
       
+      let profitRate = 0;
+      let profitRateText = "0.00%";
       let color = "var(--zero)";
       let sign = "";
-      if (profitRate > 0.01) { color = "var(--up)"; sign = "+"; }
-      else if (profitRate < -0.01) { color = "var(--down)"; sign = ""; }
+
+      // 매수가와 현재가가 모두 있을 때만 수익률 계산
+      if (buyP && currentPrice > 0) {
+        profitRate = ((currentPrice - buyP) / buyP) * 100;
+        if (profitRate > 0.01) { color = "var(--up)"; sign = "+"; }
+        else if (profitRate < -0.01) { color = "var(--down)"; sign = ""; }
+        profitRateText = `${sign}${profitRate.toFixed(2)}%`;
+      } else if (!buyP) {
+        profitRateText = "기록없음"; // 구버전 데이터 대응
+      } else if (currentPrice === 0) {
+        profitRateText = "로딩실패";
+      }
 
       return {
         html: `
@@ -176,12 +182,12 @@ async function refreshData() {
             <div style="flex:1; overflow:hidden;">
               <div style="margin-bottom:2px;"><b style="font-size:14px;">${s.id} (${d.qty}주)</b></div>
               <div style="font-size:11.5px; white-space:nowrap;">
-                <span style="color:#888;">매수 ${money(buyP)}</span> | 
-                <span style="font-weight:bold;">현재 ${money(price)}</span> | 
-                <span style="color:${color}; font-weight:bold;">${sign}${profitRate.toFixed(2)}%</span>
+                <span style="color:#888;">매수 ${buyP ? money(buyP) : '미기록'}</span> | 
+                <span style="font-weight:bold;">현재 ${money(currentPrice)}</span> | 
+                <span style="color:${color}; font-weight:bold;">${profitRateText}</span>
               </div>
             </div>
-            <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell btn-action" style="height:36px; font-size:13px;">매도</button>
+            <button onclick="window.sellStock('${s.id}', ${currentPrice})" class="btn btn-trade btn-sell btn-action" style="height:36px; font-size:13px;" ${currentPrice === 0 ? 'disabled' : ''}>매도</button>
           </div>`,
         value: val
       };
@@ -195,24 +201,25 @@ async function refreshData() {
       }
     });
 
-    if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "보유 없음";
+    if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "보유 주식이 없습니다.";
 
-    // 3. 총 자산 계산 및 DB 업데이트
+    // 3. 총 자산 업데이트
     const total = (userData.cash || 0) + stockTotal;
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
     await setDoc(userRef, { totalAsset: total }, { merge: true });
 
-    // 4. 랭킹/내역 업데이트 로직 (함수 분리 추천)
+    // 4. 랭킹 및 거래 내역 업데이트
     await updateRankingAndHistory(user.email);
 
   } catch (e) { 
-    console.error("refreshData 에러:", e); 
+    console.error("데이터 갱신 중 치명적 오류:", e); 
   }
 }
 
-// 랭킹 및 내역 업데이트를 위한 보조 함수
+// 랭킹/내역 업데이트 함수 (가독성을 위해 분리)
 async function updateRankingAndHistory(email) {
   try {
+    // 랭킹 TOP 10
     const rSnaps = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
     let rHtml = "";
     rSnaps.docs.forEach((d, i) => {
@@ -221,6 +228,7 @@ async function updateRankingAndHistory(email) {
     });
     if($("rankingList")) $("rankingList").innerHTML = rHtml;
 
+    // 최근 거래 내역 TOP 10
     const hSnaps = await getDocs(query(collection(db, "users", email, "history"), orderBy("timestamp", "desc"), limit(10)));
     let hHtml = "";
     hSnaps.docs.forEach(doc => {
@@ -229,7 +237,9 @@ async function updateRankingAndHistory(email) {
       hHtml += `<div class="item-flex" style="font-size:12px;"><span>${typeLabel} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
     });
     if($("transactionList")) $("transactionList").innerHTML = hHtml || "내역 없음";
-  } catch(e) { console.error("순위/내역 업데이트 실패:", e); }
+  } catch(e) { 
+    console.error("랭킹/내역 로딩 실패:", e); 
+  }
 }
 
 const globalRefresh = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
