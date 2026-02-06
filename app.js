@@ -39,7 +39,7 @@ function updateTimer() {
 }
 setInterval(updateTimer, 1000);
 
-// [완벽 복원] 실시간 환율 및 실패 시 기본값 1465원 설정
+// [복원] 실시간 환율 및 실패 시 기본값 1465원
 async function getExchangeRate() {
   try {
     const res = await fetch(`${QUOTE_URL}?symbol=USDKRW=X`);
@@ -57,7 +57,6 @@ async function fetchQuote() {
     const data = await res.json();
     if (data.ok) {
       let p = data.price;
-      // 한국 주식 실시간 환율 안내 및 계산
       if (data.currency === "KRW") {
         const rate = await getExchangeRate();
         p = p / rate;
@@ -94,7 +93,7 @@ async function buyStock() {
   if(isNaN(qty) || qty <= 0) return;
   $("buyBtn").disabled = true;
   try {
-    const result = await callTradeAPI({ type: "BUY", symbol: curSym, qty, price: curPrice });
+    const result = await callTradeAPI({ type: "BUY", symbol: curSym, qty: qty, price: curPrice });
     if(result.data.success) { alert(`[${curSym}] ${qty}주 매수 완료!`); refreshData(); }
   } catch(e) { alert("매수 실패: " + e.message); } finally { $("buyBtn").disabled = false; }
 }
@@ -103,7 +102,7 @@ async function sellStock(sym, currentPrice) {
   const qty = parseInt(prompt(`[${sym}] 매도 수량:`, "1"));
   if(isNaN(qty) || qty <= 0) return;
   try {
-    const result = await callTradeAPI({ type: "SELL", symbol: sym, qty, price: currentPrice });
+    const result = await callTradeAPI({ type: "SELL", symbol: sym, qty: qty, price: currentPrice });
     if(result.data.success) { alert(`[${sym}] ${qty}주 매도 완료!`); refreshData(); }
   } catch(e) { alert("매도 실패: " + e.message); }
 }
@@ -111,10 +110,11 @@ async function sellStock(sym, currentPrice) {
 async function refreshData() {
   const user = auth.currentUser; if (!user) return;
   try {
-    const uSnap = await getDoc(doc(db, \"users\", user.email));
+    const uSnap = await getDoc(doc(db, "users", user.email));
     if (!uSnap.exists()) return;
     const userData = uSnap.data();
     if($("cashText")) $("cashText").textContent = money(userData.cash);
+    if($("userNickname")) $("userNickname").textContent = userData.nickname || user.email.split('@')[0];
 
     const rate = await getExchangeRate();
     const pSnaps = await getDocs(collection(db, "users", user.email, "portfolio"));
@@ -128,24 +128,12 @@ async function refreshData() {
       if (quote.currency === "KRW") price = price / rate;
 
       const val = price * d.qty; stockTotal += val;
-      
-      // [완벽 복원] 수익률 계산 및 +- 기호 표시 로직
       const buyP = d.price || price; 
       const profitRate = ((price - buyP) / buyP) * 100;
       const color = profitRate >= 0 ? "var(--warn)" : "var(--primary)";
       const sign = profitRate >= 0 ? "+" : "";
 
-      pHtml += `
-        <div class="item-flex">
-          <div style="flex:1;">
-            <b style="font-size:15px;">${s.id}</b> <small>${d.qty}주</small><br>
-            <span style="font-size:12px; color:${color};">
-              ${money(price)} (${sign}${profitRate.toFixed(2)}%)
-            </span><br>
-            <small style="color:#888;">구매가: ${money(buyP)}</small>
-          </div>
-          <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell">매도</button>
-        </div>`;
+      pHtml += `<div class="item-flex"><div style="flex:1;"><b style="font-size:15px;">${s.id}</b> <small>${d.qty}주</small><br><span style="font-size:12px; color:${color};">${money(price)} (${sign}${profitRate.toFixed(2)}%)</span><br><small style="color:#888;">구매가: ${money(buyP)}</small></div><button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell">매도</button></div>`;
     }
     if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "보유 없음";
 
@@ -153,7 +141,6 @@ async function refreshData() {
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
     await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
 
-    // 랭킹 및 히스토리 출력 (선생님 원본 스타일)
     const rSnaps = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
     let rHtml = ""; rSnaps.docs.forEach((d, i) => {
       const rd = d.data(); rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
@@ -170,25 +157,32 @@ async function refreshData() {
   } catch (e) { console.error(e); }
 }
 
-// 이벤트 바인딩
-if($("loginBtn")) { 
-  $("loginBtn").onclick = () => { 
-    const em = $("email").value; const pw = $("pw").value;
-    if(!em || !pw) return alert("입력창을 확인하세요.");
-    signInWithEmailAndPassword(auth, em, pw).catch(e => alert("실패: " + e.message)); 
-  }; 
-}
+// [수정] 로그인 버튼 이벤트 핸들러 고정
+const loginAction = async () => {
+  const em = $("email").value.trim();
+  const pw = $("pw").value.trim();
+  if(!em || !pw) return alert("이메일과 비밀번호를 입력하세요.");
+  try {
+    await signInWithEmailAndPassword(auth, em, pw);
+  } catch(e) {
+    alert("로그인 실패: " + e.message);
+  }
+};
+
+if($("loginBtn")) $("loginBtn").onclick = loginAction;
 if($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
 if($("qBtn")) $("qBtn").onclick = fetchQuote;
 if($("buyBtn")) $("buyBtn").onclick = buyStock;
 if($("globalRefreshBtn")) $("globalRefreshBtn").onclick = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
 window.sellStock = sellStock;
 
-onAuthStateChanged(auth, async (u) => {
+onAuthStateChanged(auth, (u) => {
   if (u) {
-    $("authView").classList.add("hidden"); $("dashView").classList.remove("hidden");
+    $("authView").classList.add("hidden"); 
+    $("dashView").classList.remove("hidden");
     refreshData();
   } else { 
-    $("authView").classList.remove("hidden"); $("dashView").classList.add("hidden"); 
+    $("authView").classList.remove("hidden"); 
+    $("dashView").classList.add("hidden"); 
   }
 });
