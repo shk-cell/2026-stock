@@ -98,14 +98,15 @@ async function sellStock(sym, currentPrice) {
 async function refreshData() {
   const user = auth.currentUser; if (!user) return;
   try {
-    
-    const rate = await getExchangeRate();
-    if($("currentRateText")) {
-      $("currentRateText").textContent = `(현재 환율: ${rate.toLocaleString()}원)`;
-      
     const uSnap = await getDoc(doc(db, "users", user.email));
     if (!uSnap.exists()) return;
     const userData = uSnap.data();
+
+    // 환율 정보 가져오기 및 멘트 업데이트
+    const rate = await getExchangeRate();
+    if($("currentRateText")) {
+      $("currentRateText").textContent = `(현재 환율: ${rate.toLocaleString()}원)`;
+    }
 
     if($("userNickname")) {
       $("userNickname").textContent = `${user.email} (${userData.nickname || '사용자'})`;
@@ -113,7 +114,6 @@ async function refreshData() {
     
     if($("cashText")) $("cashText").textContent = money(userData.cash);
 
-    const rate = await getExchangeRate();
     const pSnaps = await getDocs(collection(db, "users", user.email, "portfolio"));
     let pHtml = "", stockTotal = 0;
 
@@ -136,8 +136,8 @@ async function refreshData() {
       pHtml += `
         <div class="item-flex">
           <div style="flex:1; overflow:hidden;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-               <b style="font-size:14px;">${s.id} (${d.qty}주)</b> 
+            <div style="margin-bottom:2px;">
+               <b style="font-size:14px;">${s.id}(${d.qty}주)</b> 
             </div>
             <div style="font-size:11.5px; white-space:nowrap;">
               <span style="color:#888;">매수 ${money(buyP)}</span> | 
@@ -154,14 +154,12 @@ async function refreshData() {
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
     await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
 
-    // 사라졌던 랭킹 로직 복구
     const rSnaps = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
     let rHtml = ""; rSnaps.docs.forEach((d, i) => {
       const rd = d.data(); rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
     });
     if($("rankingList")) $("rankingList").innerHTML = rHtml;
 
-    // 사라졌던 내역 로직 복구
     const hSnaps = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10)));
     let hHtml = ""; hSnaps.docs.forEach(doc => {
       const h = doc.data(); 
@@ -177,7 +175,11 @@ if($("loginBtn")) {
   $("loginBtn").onclick = async () => {
     const em = $("email").value.trim();
     const pw = $("pw").value.trim();
-    try { await signInWithEmailAndPassword(auth, em, pw); } catch(e) { alert("로그인 실패"); }
+    try { 
+      await signInWithEmailAndPassword(auth, em, pw); 
+    } catch(e) { 
+      alert("로그인 실패: 이메일 또는 비밀번호를 확인하세요."); 
+    }
   };
 }
 if($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
@@ -190,7 +192,7 @@ onAuthStateChanged(auth, (u) => {
   if (u) {
     $("authView").classList.add("hidden"); 
     $("dashView").classList.remove("hidden");
-    globalRefresh(); // 로그인 시 자동 실행
+    globalRefresh(); 
   } else { 
     $("authView").classList.remove("hidden"); 
     $("dashView").classList.add("hidden"); 
