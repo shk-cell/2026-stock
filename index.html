@@ -72,16 +72,25 @@
           <button id="buyBtn" class="btn btn-trade btn-buy" disabled>매수</button>
         </div>
 
-        <div class="guide-box">
-          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력<br>
-          - 예: 애플: <b>AAPL</b>, 테슬라: <b>TSLA</b>, 구글: <b>GOOGL</b>, 엔비디아: <b>NVDA</b>, ...<br><br>
-          <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS / .KQ</b> 붙이기<br>
-          - 코스피 (대기업 등): 종목코드 + <b>.KS</b> (예: 삼성전자 : <b>005930.KS</b>)<br>
-          - 코스닥 (벤처/IT 등): 종목코드 + <b>.KQ</b> (예: 에코프로 : <b>086520.KQ</b>)<br>
-          <div style="color:var(--muted); margin-top:4px; font-size: 11px;">
-            ※ 한국 주식은 실시간 환율을 적용하여 <b>달러($)로 자동 변환</b>됩니다.
-          </div>
-        </div>
+      <div class="guide-box">
+                <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력<br>
+                - 예: 애플: <b>AAPL</b>, 테슬라: <b>TSLA</b>, 구글: <b>GOOGL</b>, 엔비디아: <b>NVDA</b>, ...<br>
+                <span style="color:var(--warn); font-size: 11px;">
+                  ※ 미 증시 개장: <b>23:30 ~ 06:00</b> (한국시간 기준)<br>
+                  - 개장 시간 외(낮 시간 등)에는 시세가 변하지 않고 고정됩니다.
+                </span><br><br>
+      
+                <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS / .KQ</b> 붙이기<br>
+                - 코스피 (대기업 등): 종목코드 + <b>.KS</b> (예: 삼성전자 : <b>005930.KS</b>)<br>
+                - 코스닥 (벤처/IT 등): 종목코드 + <b>.KQ</b> (예: 에코프로 : <b>086520.KQ</b>)<br>
+                <span style="color:var(--warn); font-size: 11px;">
+                  ※ 한 증시 개장: <b>09:00 ~ 15:30</b> (주말 및 공휴일 휴장)
+                </span>
+      
+                <div style="color:var(--muted); margin-top:6px; font-size: 11px; border-top: 1px solid var(--line); padding-top: 4px;">
+                  ※ 모든 주식은 실시간 환율을 적용하여 <b>달러($)로 자동 변환</b>됩니다.
+                </div>
+              </div>
 
         <div id="qOutBox">
           <div><div id="qSymbolText" style="font-size:12px; color:var(--muted); font-weight:bold;">-</div><div id="qPriceText" style="font-size:20px; font-weight:800; color:var(--warn);">$0.00</div></div>
