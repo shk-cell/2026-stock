@@ -7,7 +7,7 @@
   <style>
     :root { 
       --bg: #0b0f14; 
-      --card: rgba(18, 25, 35, 0.85); /* 배경이 비치도록 투명도 조절 */
+      --card: rgba(18, 25, 35, 0.85); 
       --line: #1e2a3a; 
       --muted: #93a4b8; 
       --txt: #eaf0f7; 
@@ -17,12 +17,9 @@
       --down: #4d94ff; 
     }
     * { box-sizing: border-box; }
-
-    /* 배경 이미지 및 기본 설정 */
     body { 
       margin: 0; 
       font-family: system-ui, sans-serif; 
-      /* 배경 이미지 경로: images/background.png */
       background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('images/background.png'); 
       background-size: cover;
       background-position: center;
@@ -31,23 +28,17 @@
       line-height: 1.5; 
       min-height: 100vh;
     }
-
     .wrap { max-width: 520px; margin: 20px auto; padding: 0 16px; }
-
-    /* 카드 스타일: 반투명 및 블러 효과 적용 */
     .card { 
       background: var(--card); 
       border: 1px solid var(--line); 
       border-radius: 20px; 
       padding: 24px; 
       box-shadow: 0 20px 40px rgba(0,0,0,0.5); 
-      backdrop-filter: blur(12px); /* 배경 흐림 효과 */
+      backdrop-filter: blur(12px); 
     }
-
     h1 { margin: 0 0 8px; font-size: 20px; text-align: center; color: var(--pri); }
     label { display: block; margin-top: 24px; font-size: 12px; color: var(--pri); font-weight: 700; text-transform: uppercase; }
-    
-    /* 입력창 스타일 수정 */
     input { 
       width: 100%; 
       height: 44px; 
@@ -59,27 +50,20 @@
       outline: none; 
     }
     input::placeholder { color: #5a6b7d; }
-
     .btn { height: 44px; border-radius: 10px; border: 0; color: white; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
     .btn:hover { filter: brightness(1.1); }
     .btn:disabled { opacity: 0.2; cursor: not-allowed; }
-    
     .btn-trade { width: 70px; font-size: 14px; flex-shrink: 0; }
     .btn-buy { background: var(--up); }
     .btn-sell { background: var(--pri); }
-
     .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin: 10px 0; }
     .hidden { display: none !important; }
-    
     .guide-box { background: rgba(26, 34, 44, 0.8); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 10px; font-size: 12px; line-height: 1.6; }
     .guide-box b { color: var(--warn); }
-
     .stat-card { background: rgba(26, 34, 44, 0.8); border: 1px solid var(--line); border-radius: 16px; padding: 14px; flex: 1; }
     .list-box { background: rgba(26, 34, 44, 0.8); border-radius: 16px; padding: 12px; margin-top: 8px; border: 1px solid var(--line); }
-    
     .item-flex { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #243142; gap: 8px; }
     .item-flex:last-child { border: 0; }
-
     #qOutBox { margin-top: 10px; padding: 15px; background: #1e2a3a; border-radius: 12px; display: none; align-items: center; justify-content: space-between; border-left: 4px solid var(--warn); }
     #expireMsg { font-size: 14px; color: var(--warn); font-family: monospace; font-weight: bold; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 8px; display: inline-block; }
   </style>
@@ -89,40 +73,18 @@
     <div class="card">
       <section id="authView">
         <h1>부평중학교 모의투자</h1>
-
         <div id="notice-box" style="background: rgba(43, 124, 255, 0.08); border: 1px solid rgba(43, 124, 255, 0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; font-size: 13px; line-height: 1.7; color: var(--txt);">
-          <h3 style="margin-top: 0; color: var(--pri); font-size: 16px; display: flex; align-items: center; gap: 8px;">
-            📢 필독: 모의투자 운영 안내 및 교육 취지
-          </h3>
-          <p style="margin: 8px 0 16px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">
-            이 플랫폼은 여러분이 건전한 금융 지식을 쌓고 세상의 흐름을 읽는 눈을 기르기 위해 제작된 <b>교육용 플랫폼</b>입니다.
-          </p>
-        
+          <h3 style="margin-top: 0; color: var(--pri); font-size: 16px; display: flex; align-items: center; gap: 8px;">📢 필독: 모의투자 운영 안내 및 교육 취지</h3>
+          <p style="margin: 8px 0 16px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">이 플랫폼은 여러분이 건전한 금융 지식을 쌓고 세상의 흐름을 읽는 눈을 기르기 위해 제작된 <b>교육용 플랫폼</b>입니다.</p>
           <ul style="list-style: none; padding: 0; margin: 0;">
-            <li style="margin-bottom: 10px;">
-              <b>1. 순수 교육용 플랫폼:</b> 도박이나 사행성 게임이 아니며, 실제 투자를 종용하거나 부추기지 않습니다. 가상 환경을 통해 <b>경제 문해력</b>을 높이는 데 집중하세요.
-            </li>
-            <li style="margin-bottom: 10px;">
-              <b>2. 경쟁보다는 학습:</b> 수익률 경쟁보다 기업 가치 변화의 원인을 분석하는 <b>'과정'</b>에 의미를 두시기 바랍니다.
-            </li>
-            <li style="margin-bottom: 10px;">
-              <b>3. 데이터 기반 분석:</b> 감이 아닌 유튜브, 뉴스, <b>AI(ChatGPT, 제미나이)</b> 등을 활용해 스스로 정보를 판단하는 훈련을 하세요.
-            </li>
-            <li style="margin-bottom: 10px;">
-              <b>4. 초기 자금:</b> 학습용 가상 머니 <b>7만 달러($70,000)</b>가 지급됩니다.
-            </li>
-            <li style="margin-bottom: 10px;">
-              <b>5. 증시 운영 시간 (실제 시장 연동):</b><br>
-              • 🇺🇸 미국: 23:30 ~ 06:00 | • 🇰🇷 한국: 09:00 ~ 15:30
-            </li>
+            <li style="margin-bottom: 10px;"><b>1. 순수 교육용 플랫폼:</b> 도박이나 사행성 게임이 아니며, 실제 투자를 종용하거나 부추기지 않습니다.</li>
+            <li style="margin-bottom: 10px;"><b>2. 경쟁보다는 학습:</b> 수익률 경쟁보다 기업 가치 변화의 원인을 분석하는 <b>'과정'</b>에 의미를 두시기 바랍니다.</li>
+            <li style="margin-bottom: 10px;"><b>3. 데이터 기반 분석:</b> 감이 아닌 유튜브, 뉴스, <b>AI(ChatGPT, 제미나이)</b> 등을 활용해 스스로 정보를 판단하세요.</li>
+            <li style="margin-bottom: 10px;"><b>4. 초기 자금:</b> 학습용 가상 머니 <b>7만 달러($70,000)</b>가 지급됩니다.</li>
+            <li style="margin-bottom: 10px;"><b>5. 증시 운영 시간:</b><br>🇺🇸 미국: 23:30 ~ 06:00 | 🇰🇷 한국: 09:00 ~ 15:30</li>
           </ul>
-        
-          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); color: var(--warn); font-size: 11px;">
-            ※ 주의: 계정 도용, 시스템 악용 등 교육 취지에 어긋나는 행동 시 데이터 초기화 및 이용이 제한될 수 있습니다.
-          </div>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); color: var(--warn); font-size: 11px;">※ 주의: 계정 도용 시 데이터 초기화 및 이용이 제한될 수 있습니다.</div>
         </div>
-
-        
         <input id="email" type="email" placeholder="이메일" style="margin-bottom:8px;" />
         <input id="pw" type="password" placeholder="비밀번호" />
         <button id="loginBtn" class="btn" style="width:100%; background:var(--pri); margin-top:10px;">로그인</button>
@@ -130,16 +92,16 @@
 
       <section id="dashView" class="hidden">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div><b id="userNickname" style="font-size:18px;">-</b><div id="userEmail" style="font-size:11px; color:var(--muted);"></div></div>
+          <div>
+            <b id="userNickname" style="font-size:15px; color:var(--pri);">-</b>
+            <div id="userEmail" style="font-size:11px; color:var(--muted);"></div>
+          </div>
           <button id="logoutBtn" style="background:none; border:1px solid var(--line); color:var(--muted); font-size:11px; padding:4px 8px; border-radius:6px; cursor:pointer;">로그아웃</button>
         </div>
 
         <button id="globalRefreshBtn" class="btn btn-refresh">현재 시세 업데이트 ↻</button>
         <div style="text-align:center; margin-bottom: 10px;">
           <div id="expireMsg">시세 갱신 필요</div>
-          <div style="font-size: 11px; color: var(--warn); margin-top: 4px;">
-            ※ 시세 업데이트 해야 매수 / 매도 기능이 활성화됩니다.
-          </div>
         </div>
 
         <div style="display:flex; gap:10px; margin-top:15px;">
@@ -155,13 +117,8 @@
         </div>
 
         <div class="guide-box">
-          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력<br>
-          - 예: 애플: <b>AAPL</b>, 테슬라: <b>TSLA</b>, ...<br>
-          <span style="color:var(--warn); font-size: 11px;">※ 미 증시 개장: 23:30 ~ 06:00 (한국시간)</span><br><br>
-
-          <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS / .KQ</b> 붙이기<br>
-          - 예: 삼성전자: <b>005930.KS</b>, 에코프로: <b>086520.KQ</b><br>
-          <span style="color:var(--warn); font-size: 11px;">※ 한 증시 개장: 09:00 ~ 15:30 (평일)</span>
+          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 (예: AAPL)<br>
+          <b>🇰🇷 한국 주식:</b> 코드 뒤에 .KS / .KQ (예: 005930.KS)
         </div>
 
         <div id="qOutBox">
