@@ -147,16 +147,18 @@ async function refreshData() {
 
       pHtml += `
         <div class="item-flex">
-          <div style="flex:1; overflow:hidden;">
-            <div style="margin-bottom:2px;"><b style="font-size:14px;">${s.id}(${d.qty}주)</b></div>
-            <div style="font-size:11.5px; white-space:nowrap;">
-              <span style="color:#888;">매수 ${money(buyP)}</span> | 
-              <span style="font-weight:bold;">현재 ${money(price)}</span> | 
-              <span style="color:${color}; font-weight:bold;">${sign}${profitRate.toFixed(2)}%</span>
-            </div>
+        <div style="flex:1; overflow:hidden;">
+          <div style="margin-bottom:2px;">
+             <b style="font-size:14px;">${s.id}(${d.qty}주)</b> 
           </div>
-          <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell" style="height:32px; font-size:12px;">매도</button>
-        </div>`;
+          <div style="font-size:11.5px; white-space:nowrap;">
+            <span style="color:#888;">매수 ${money(buyP)}</span> | 
+            <span style="font-weight:bold;">현재 ${money(price)}</span> | 
+            <span style="color:${color}; font-weight:bold;">${sign}${profitRate.toFixed(2)}%</span>
+          </div>
+        </div>
+        <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell" style="width:70px; height:36px; font-size:13px;">매도</button>
+      </div>`;
     }
     if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "보유 없음";
 
