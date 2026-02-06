@@ -49,7 +49,6 @@
       padding: 0 16px; 
       outline: none; 
     }
-    input::placeholder { color: #5a6b7d; }
     .btn { height: 44px; border-radius: 10px; border: 0; color: white; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
     .btn:hover { filter: brightness(1.1); }
     .btn:disabled { opacity: 0.2; cursor: not-allowed; }
@@ -59,7 +58,6 @@
     .btn-refresh { background: #1e2a3a; border: 1px solid var(--pri); color: var(--pri); width: 100%; margin: 10px 0; }
     .hidden { display: none !important; }
     .guide-box { background: rgba(26, 34, 44, 0.8); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 10px; font-size: 12px; line-height: 1.6; }
-    .guide-box b { color: var(--warn); }
     .stat-card { background: rgba(26, 34, 44, 0.8); border: 1px solid var(--line); border-radius: 16px; padding: 14px; flex: 1; }
     .list-box { background: rgba(26, 34, 44, 0.8); border-radius: 16px; padding: 12px; margin-top: 8px; border: 1px solid var(--line); }
     .item-flex { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #243142; gap: 8px; }
@@ -74,7 +72,7 @@
       <section id="authView">
         <h1>부평중학교 모의투자</h1>
         <div id="notice-box" style="background: rgba(43, 124, 255, 0.08); border: 1px solid rgba(43, 124, 255, 0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; font-size: 13px; line-height: 1.7; color: var(--txt);">
-          <h3 style="margin-top: 0; color: var(--pri); font-size: 16px; display: flex; align-items: center; gap: 8px;">📢 필독: 모의투자 운영 안내 및 교육 취지</h3>
+          <h3 style="margin-top: 0; color: var(--pri); font-size: 16px;">📢 필독: 모의투자 운영 안내 및 교육 취지</h3>
           <p style="margin: 8px 0 16px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">이 플랫폼은 여러분이 건전한 금융 지식을 쌓고 세상의 흐름을 읽는 눈을 기르기 위해 제작된 <b>교육용 플랫폼</b>입니다.</p>
           <ul style="list-style: none; padding: 0; margin: 0;">
             <li style="margin-bottom: 10px;"><b>1. 순수 교육용 플랫폼:</b> 도박이나 사행성 게임이 아니며, 실제 투자를 종용하거나 부추기지 않습니다.</li>
@@ -83,7 +81,6 @@
             <li style="margin-bottom: 10px;"><b>4. 초기 자금:</b> 학습용 가상 머니 <b>7만 달러($70,000)</b>가 지급됩니다.</li>
             <li style="margin-bottom: 10px;"><b>5. 증시 운영 시간:</b><br>🇺🇸 미국: 23:30 ~ 06:00 | 🇰🇷 한국: 09:00 ~ 15:30</li>
           </ul>
-          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); color: var(--warn); font-size: 11px;">※ 주의: 계정 도용 시 데이터 초기화 및 이용이 제한될 수 있습니다.</div>
         </div>
         <input id="email" type="email" placeholder="이메일" style="margin-bottom:8px;" />
         <input id="pw" type="password" placeholder="비밀번호" />
@@ -92,10 +89,7 @@
 
       <section id="dashView" class="hidden">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <b id="userNickname" style="font-size:15px; color:var(--pri);">-</b>
-            <div id="userEmail" style="font-size:11px; color:var(--muted);"></div>
-          </div>
+          <b id="userNickname" style="font-size:15px; color:var(--pri);">-</b>
           <button id="logoutBtn" style="background:none; border:1px solid var(--line); color:var(--muted); font-size:11px; padding:4px 8px; border-radius:6px; cursor:pointer;">로그아웃</button>
         </div>
 
@@ -117,8 +111,13 @@
         </div>
 
         <div class="guide-box">
-          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 (예: AAPL)<br>
-          <b>🇰🇷 한국 주식:</b> 코드 뒤에 .KS / .KQ (예: 005930.KS)
+          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력<br>
+          - 예: 애플: <b>AAPL</b>, 테슬라: <b>TSLA</b>, 엔비디아: <b>NVDA</b><br>
+          <span style="color:var(--warn); font-size: 11px;">※ 미 증시 개장: 23:30 ~ 06:00 (한국시간)</span><br><br>
+
+          <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS / .KQ</b> 붙이기<br>
+          - 예: 삼성전자: <b>005930.KS</b>, 에코프로: <b>086520.KQ</b><br>
+          <span style="color:var(--warn); font-size: 11px;">※ 한 증시 개장: 09:00 ~ 15:30 (평일)</span>
         </div>
 
         <div id="qOutBox">
