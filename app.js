@@ -208,10 +208,16 @@ onAuthStateChanged(auth, async (u) => {
     }
     $("authView").classList.add("hidden");
     $("dashView").classList.remove("hidden");
-    refreshData();
+
+    // [수정 포인트] 로그인 시 자동으로 시세 갱신 활성화
+    lastRefresh = Date.now(); // 현재 시간으로 갱신 시점 설정
+    refreshData();           // 시세 반영하여 데이터 로드
+    updateTimer();           // 타이머 작동 시작
+    
   } else {
     $("authView").classList.remove("hidden");
     $("dashView").classList.add("hidden");
+    lastRefresh = 0; // 로그아웃 시 초기화
   }
 });
 
