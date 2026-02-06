@@ -102,84 +102,134 @@ async function sellStock(sym, currentPrice) {
 }
 
 async function refreshData() {
-  const user = auth.currentUser; if (!user) return;
+  const user = auth.currentUser; 
+  if (!user) return;
+  
   try {
     const userRef = doc(db, "users", user.email);
     let uSnap = await getDoc(userRef);
 
-    // [중요] 접속 시 데이터가 없으면 자동으로 7만 달러 초기화 및 지급
+    // 1. 신규 유저 자산 지급 로직 (기존 유지)
     if (!uSnap.exists()) {
-      await setDoc(userRef, {
+      const initialData = {
         cash: 70000,
         totalAsset: 70000,
         nickname: user.email.split('@')[0],
         createdAt: new Date()
-      });
+      };
+      await setDoc(userRef, initialData);
       uSnap = await getDoc(userRef);
       alert("신규 계정 초기 자금 $70,000가 지급되었습니다.");
     }
     
     const userData = uSnap.data();
-    const rate = await getExchangeRate();
+    const rate = await getExchangeRate(); // 현재 환율 가져오기
 
+    // 기본 정보 표시
     if($("userNickname")) $("userNickname").textContent = `${user.email} (${userData.nickname || '사용자'})`;
     if($("cashText")) $("cashText").textContent = money(userData.cash);
 
+    // 2. 포트폴리오 데이터 가져오기
     const pSnaps = await getDocs(collection(db, "users", user.email, "portfolio"));
-    let pHtml = "", stockTotal = 0;
+    let pHtml = "";
+    let stockTotal = 0;
 
-    for (const s of pSnaps.docs) {
-      const d = s.data(); if (d.qty <= 0) continue;
-      const res = await fetch(`${QUOTE_URL}?symbol=${s.id}`);
-      const quote = await res.json();
-      let price = quote.ok ? quote.price : 0;
-      // 포트폴리오에서도 한국 주식이면 달러로 환산
-      if (s.id.includes(".KS") || s.id.includes(".KQ") || quote.currency === "KRW") {
-        price = price / rate;
+    // [개선] 모든 종목의 시세를 병렬로 요청하여 속도 향상
+    const portfolioPromises = pSnaps.docs.map(async (s) => {
+      const d = s.data();
+      if (d.qty <= 0) return null;
+
+      let price = 0;
+      try {
+        // 시세 API 호출 (주소와 symbol 확인 필)
+        const res = await fetch(`${QUOTE_URL}?symbol=${encodeURIComponent(s.id)}`);
+        const quote = await res.json();
+        
+        if (quote && quote.ok) {
+          price = Number(quote.price);
+          // 한국 주식 판단 로직 개선
+          const isKorean = s.id.includes(".KS") || s.id.includes(".KQ") || quote.currency === "KRW";
+          if (isKorean) {
+            price = price / rate; // 달러로 변환
+          }
+        } else {
+          // 시세 호출 실패 시 DB에 저장된 매수가를 임시로 보여줌
+          price = d.price || 0;
+        }
+      } catch (e) {
+        console.error(`${s.id} 시세 갱신 실패:`, e);
+        price = d.price || 0;
       }
-      const val = price * d.qty; stockTotal += val;
-      const buyP = d.price || price; 
-      const profitRate = ((price - buyP) / buyP) * 100;
+
+      const val = price * d.qty;
+      const buyP = d.price || price;
+      const profitRate = buyP > 0 ? ((price - buyP) / buyP) * 100 : 0;
+      
       let color = "var(--zero)";
       let sign = "";
-      if (profitRate > 0) { color = "var(--up)"; sign = "+"; }
-      else if (profitRate < 0) { color = "var(--down)"; sign = ""; }
+      if (profitRate > 0.01) { color = "var(--up)"; sign = "+"; }
+      else if (profitRate < -0.01) { color = "var(--down)"; sign = ""; }
 
-      pHtml += `
-        <div class="item-flex">
-        <div style="flex:1; overflow:hidden;">
-          <div style="margin-bottom:2px;">
-             <b style="font-size:14px;">${s.id} (${d.qty}주)</b> 
-          </div>
-          <div style="font-size:11.5px; white-space:nowrap;">
-            <span style="color:#888;">매수 ${money(buyP)}</span> | 
-            <span style="font-weight:bold;">현재 ${money(price)}</span> | 
-            <span style="color:${color}; font-weight:bold;">${sign}${profitRate.toFixed(2)}%</span>
-          </div>
-        </div>
-        <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell" style="width:70px; height:36px; font-size:13px;">매도</button>
-      </div>`;
-    }
+      return {
+        html: `
+          <div class="item-flex">
+            <div style="flex:1; overflow:hidden;">
+              <div style="margin-bottom:2px;"><b style="font-size:14px;">${s.id} (${d.qty}주)</b></div>
+              <div style="font-size:11.5px; white-space:nowrap;">
+                <span style="color:#888;">매수 ${money(buyP)}</span> | 
+                <span style="font-weight:bold;">현재 ${money(price)}</span> | 
+                <span style="color:${color}; font-weight:bold;">${sign}${profitRate.toFixed(2)}%</span>
+              </div>
+            </div>
+            <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell btn-action" style="height:36px; font-size:13px;">매도</button>
+          </div>`,
+        value: val
+      };
+    });
+
+    const results = await Promise.all(portfolioPromises);
+    results.forEach(res => {
+      if (res) {
+        pHtml += res.html;
+        stockTotal += res.value;
+      }
+    });
+
     if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "보유 없음";
 
+    // 3. 총 자산 계산 및 DB 업데이트
     const total = (userData.cash || 0) + stockTotal;
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
     await setDoc(userRef, { totalAsset: total }, { merge: true });
 
+    // 4. 랭킹/내역 업데이트 로직 (함수 분리 추천)
+    await updateRankingAndHistory(user.email);
+
+  } catch (e) { 
+    console.error("refreshData 에러:", e); 
+  }
+}
+
+// 랭킹 및 내역 업데이트를 위한 보조 함수
+async function updateRankingAndHistory(email) {
+  try {
     const rSnaps = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
-    let rHtml = ""; rSnaps.docs.forEach((d, i) => {
-      const rd = d.data(); rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
+    let rHtml = "";
+    rSnaps.docs.forEach((d, i) => {
+      const rd = d.data();
+      rHtml += `<div class="item-flex"><span>${i + 1}. ${rd.nickname || d.id.split('@')[0]}</span><b>${money(rd.totalAsset)}</b></div>`;
     });
     if($("rankingList")) $("rankingList").innerHTML = rHtml;
 
-    const hSnaps = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10)));
-    let hHtml = ""; hSnaps.docs.forEach(doc => {
+    const hSnaps = await getDocs(query(collection(db, "users", email, "history"), orderBy("timestamp", "desc"), limit(10)));
+    let hHtml = "";
+    hSnaps.docs.forEach(doc => {
       const h = doc.data(); 
       const typeLabel = (h.type === 'BUY' || h.type === '매수') ? '🔴 매수' : '🔵 매도';
       hHtml += `<div class="item-flex" style="font-size:12px;"><span>${typeLabel} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
     });
     if($("transactionList")) $("transactionList").innerHTML = hHtml || "내역 없음";
-  } catch (e) { console.error(e); }
+  } catch(e) { console.error("순위/내역 업데이트 실패:", e); }
 }
 
 const globalRefresh = () => { lastRefresh = Date.now(); refreshData(); updateTimer(); };
