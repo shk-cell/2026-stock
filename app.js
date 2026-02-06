@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
@@ -29,16 +29,10 @@ function updateTimer() {
   const diff = Date.now() - lastRefresh;
   const isExp = lastRefresh === 0 || diff >= 3600000;
   if($("buyBtn")) $("buyBtn").disabled = isExp || !curSym;
-  if (isExp) {
-    msgElem.textContent = "시세 갱신 필요";
-  } else {
-    const rem = 3600000 - diff;
-    msgElem.textContent = `거래 가능: ${Math.floor(rem/60000)}분 ${Math.floor((rem%60000)/1000)}초`;
-  }
+  msgElem.textContent = isExp ? "시세 갱신 필요" : `거래 가능: ${Math.floor((3600000-diff)/60000)}분 ${Math.floor(((3600000-diff)%60000)/1000)}초`;
 }
 setInterval(updateTimer, 1000);
 
-// [복원] 실시간 환율 및 실패 시 기본값 1465원
 async function getExchangeRate() {
   try {
     const res = await fetch(`${QUOTE_URL}?symbol=USDKRW=X`);
@@ -59,7 +53,6 @@ async function fetchQuote() {
       if (data.currency === "KRW") {
         const rate = await getExchangeRate();
         p = p / rate;
-        alert(`한국 주식은 실시간 환율(1$=${rate.toLocaleString()}원)이 적용된 달러 가격으로 표시됩니다.`);
       }
       curSym = data.symbol; curPrice = p;
       if($("qOutBox")) $("qOutBox").style.display = "flex";
@@ -73,16 +66,13 @@ async function fetchQuote() {
 
 async function callTradeAPI(payload) {
   const user = auth.currentUser;
-  if (!user) throw new Error("로그인이 필요합니다.");
   const idToken = await user.getIdToken();
   const res = await fetch(TRADE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
     body: JSON.stringify({ data: payload })
   });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.error || "서버 통신 실패");
-  return result;
+  return await res.json();
 }
 
 async function buyStock() {
@@ -90,11 +80,10 @@ async function buyStock() {
   if(!user || !curSym || curPrice <= 0) return;
   const qty = parseInt(prompt(`[${curSym}] 매수 수량:`, "1"));
   if(isNaN(qty) || qty <= 0) return;
-  $("buyBtn").disabled = true;
   try {
     const result = await callTradeAPI({ type: "BUY", symbol: curSym, qty: qty, price: curPrice });
-    if(result.data.success) { alert(`[${curSym}] ${qty}주 매수 완료!`); refreshData(); }
-  } catch(e) { alert("매수 실패: " + e.message); } finally { $("buyBtn").disabled = false; }
+    if(result.data.success) { alert("매수 완료!"); refreshData(); }
+  } catch(e) { alert("매수 실패"); }
 }
 
 async function sellStock(sym, currentPrice) {
@@ -102,8 +91,8 @@ async function sellStock(sym, currentPrice) {
   if(isNaN(qty) || qty <= 0) return;
   try {
     const result = await callTradeAPI({ type: "SELL", symbol: sym, qty: qty, price: currentPrice });
-    if(result.data.success) { alert(`[${sym}] ${qty}주 매도 완료!`); refreshData(); }
-  } catch(e) { alert("매도 실패: " + e.message); }
+    if(result.data.success) { alert("매도 완료!"); refreshData(); }
+  } catch(e) { alert("매도 실패"); }
 }
 
 async function refreshData() {
@@ -112,8 +101,13 @@ async function refreshData() {
     const uSnap = await getDoc(doc(db, "users", user.email));
     if (!uSnap.exists()) return;
     const userData = uSnap.data();
+
+    // [수정] 상단 아이디 (닉네임) 표기
+    if($("userNickname")) {
+      $("userNickname").textContent = `${user.email} (${userData.nickname || '사용자'})`;
+    }
+    
     if($("cashText")) $("cashText").textContent = money(userData.cash);
-    if($("userNickname")) $("userNickname").textContent = userData.nickname || user.email.split('@')[0];
 
     const rate = await getExchangeRate();
     const pSnaps = await getDocs(collection(db, "users", user.email, "portfolio"));
@@ -129,10 +123,18 @@ async function refreshData() {
       const val = price * d.qty; stockTotal += val;
       const buyP = d.price || price; 
       const profitRate = ((price - buyP) / buyP) * 100;
-      const color = profitRate >= 0 ? "var(--warn)" : "var(--primary)";
+      const color = profitRate >= 0 ? "var(--up)" : "var(--down)"; // 빨강(+) / 파랑(-)
       const sign = profitRate >= 0 ? "+" : "";
 
-      pHtml += `<div class="item-flex"><div style="flex:1;"><b style="font-size:15px;">${s.id}</b> <small>${d.qty}주</small><br><span style="font-size:12px; color:${color};">${money(price)} (${sign}${profitRate.toFixed(2)}%)</span><br><small style="color:#888;">구매가: ${money(buyP)}</small></div><button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell">매도</button></div>`;
+      pHtml += `
+        <div class="item-flex">
+          <div style="flex:1;">
+            <b style="font-size:15px;">${s.id}</b> <small>${d.qty}주</small><br>
+            <span style="font-size:12px; color:#888;">구매: ${money(buyP)}</span> | <span style="font-size:12px; font-weight:bold;">현재: ${money(price)}</span><br>
+            <span style="font-size:13px; color:${color}; font-weight:bold;">수익률: ${sign}${profitRate.toFixed(2)}%</span>
+          </div>
+          <button onclick="window.sellStock('${s.id}', ${price})" class="btn btn-trade btn-sell">매도</button>
+        </div>`;
     }
     if($("portfolioList")) $("portfolioList").innerHTML = pHtml || "보유 없음";
 
@@ -149,27 +151,19 @@ async function refreshData() {
     const hSnaps = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10)));
     let hHtml = ""; hSnaps.docs.forEach(doc => {
       const h = doc.data(); 
-      const typeLabel = (h.type === 'BUY' || h.type === '매수') ? '🔴 매수' : '🔵 매도';
-      hHtml += `<div class="item-flex" style="font-size:12px;"><span>${typeLabel} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
+      hHtml += `<div class="item-flex" style="font-size:12px;"><span>${(h.type === 'BUY' || h.type === '매수') ? '🔴 매수' : '🔵 매도'} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
     });
     if($("transactionList")) $("transactionList").innerHTML = hHtml || "내역 없음";
   } catch (e) { console.error(e); }
 }
 
-// [수정] 로그인 버튼 클릭 시 불필요한 공백 제거 및 실행
 if($("loginBtn")) {
   $("loginBtn").onclick = async () => {
     const em = $("email").value.trim();
     const pw = $("pw").value.trim();
-    if(!em || !pw) return alert("이메일과 비밀번호를 입력하세요.");
-    try {
-      await signInWithEmailAndPassword(auth, em, pw);
-    } catch(e) {
-      alert("로그인 실패: " + e.message);
-    }
+    try { await signInWithEmailAndPassword(auth, em, pw); } catch(e) { alert("로그인 실패"); }
   };
 }
-
 if($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
 if($("qBtn")) $("qBtn").onclick = fetchQuote;
 if($("buyBtn")) $("buyBtn").onclick = buyStock;
