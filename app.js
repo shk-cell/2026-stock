@@ -15,7 +15,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// 서울 서버 주소
 const TRADE_URL = "https://asia-northeast3-stock-62c76.cloudfunctions.net/tradeStock";
 const QUOTE_URL = "https://asia-northeast3-stock-62c76.cloudfunctions.net/quote";
 
@@ -157,19 +156,20 @@ async function refreshData() {
   } catch (e) { console.error(e); }
 }
 
-// [수정] 로그인 버튼 이벤트 핸들러 고정
-const loginAction = async () => {
-  const em = $("email").value.trim();
-  const pw = $("pw").value.trim();
-  if(!em || !pw) return alert("이메일과 비밀번호를 입력하세요.");
-  try {
-    await signInWithEmailAndPassword(auth, em, pw);
-  } catch(e) {
-    alert("로그인 실패: " + e.message);
-  }
-};
+// [수정] 로그인 버튼 클릭 시 불필요한 공백 제거 및 실행
+if($("loginBtn")) {
+  $("loginBtn").onclick = async () => {
+    const em = $("email").value.trim();
+    const pw = $("pw").value.trim();
+    if(!em || !pw) return alert("이메일과 비밀번호를 입력하세요.");
+    try {
+      await signInWithEmailAndPassword(auth, em, pw);
+    } catch(e) {
+      alert("로그인 실패: " + e.message);
+    }
+  };
+}
 
-if($("loginBtn")) $("loginBtn").onclick = loginAction;
 if($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
 if($("qBtn")) $("qBtn").onclick = fetchQuote;
 if($("buyBtn")) $("buyBtn").onclick = buyStock;
