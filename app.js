@@ -107,14 +107,12 @@ async function sellStock(sym, currentPrice) {
     refreshData();
   } catch(e) { alert(e); }
 }
-
 async function refreshData() {
   const user = auth.currentUser; if(!user) return;
   const uSnap = await getDoc(doc(db, "users", user.email));
   const uData = uSnap.data();
   if(!uData) return;
 
-  // [수정] 닉네임과 이메일을 함께 표시
   $("userNickname").textContent = uData.nickname || user.email.split('@')[0];
   $("userEmail").textContent = user.email; 
   $("cashText").textContent = money(uData.cash);
@@ -123,12 +121,32 @@ async function refreshData() {
   const pSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
   let pHtml = "";
   
-  pSnap.forEach(d => {
+  // [수정 포인트] 각 종목별로 최신 시세를 가져와야 함
+  for (const d of pSnap.docs) {
     const item = d.data();
+    const sym = d.id;
+    let cur = item.lastPrice; // 기본값은 저장된 가격
+
+    // 시세 업데이트 버튼을 눌러서 '거래 가능' 상태일 때만 실제 API 호출
+    const diff = Date.now() - lastRefresh;
+    if (lastRefresh !== 0 && diff < 3600000) {
+      try {
+        const res = await fetch(`${API}?symbol=${encodeURIComponent(sym)}`);
+        const data = await res.json();
+        if(data.ok) {
+          cur = data.price;
+          // 한국 주식일 경우 환율 적용
+          if(sym.endsWith(".KS") || sym.endsWith(".KQ")) {
+            const exRes = await fetch(`${API}?symbol=USDKRW=X`);
+            const exData = await exRes.json();
+            if(exData.ok) cur = data.price / exData.price;
+          }
+        }
+      } catch (e) { console.error(sym + " 시세 로드 실패"); }
+    }
+
     const avg = item.avgPrice || item.lastPrice;
-    const cur = item.lastPrice;
     const rate = ((cur - avg) / avg * 100).toFixed(2);
-    
     const color = rate > 0 ? "var(--up)" : (rate < 0 ? "var(--down)" : "var(--muted)");
     const sign = rate > 0 ? "+" : ""; 
     
@@ -136,17 +154,19 @@ async function refreshData() {
     
     pHtml += `<div class="item-flex">
       <div style="flex:1;">
-        <b style="font-size:15px;">${d.id}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
+        <b style="font-size:15px;">${sym}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
         <span style="font-size:12px; color:var(--muted);">구매: ${money(avg)}</span> | 
         <span style="font-size:12px; color:var(--warn);">현재: ${money(cur)}</span> | 
         <span style="color:${color}; font-size:12px; font-weight:bold;">${sign}${rate}%</span>
       </div>
-      <button onclick="window.sellStock('${d.id}', ${cur})" class="btn btn-trade btn-sell">매도</button>
+      <button onclick="window.sellStock('${sym}', ${cur})" class="btn btn-trade btn-sell">매도</button>
     </div>`;
-  });
+  }
   
   $("portfolioList").innerHTML = pHtml || "보유 없음";
   $("totalAssetsText").textContent = money(total);
+  
+  // 총 자산 DB 업데이트
   await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
 
   const rSnap = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
