@@ -149,7 +149,7 @@ async function refreshData() {
         <div class="item-flex">
         <div style="flex:1; overflow:hidden;">
           <div style="margin-bottom:2px;">
-             <b style="font-size:14px;">${s.id}(${d.qty}주)</b> 
+             <b style="font-size:14px;">${s.id} (${d.qty}주)</b> 
           </div>
           <div style="font-size:11.5px; white-space:nowrap;">
             <span style="color:#888;">매수 ${money(buyP)}</span> | 
