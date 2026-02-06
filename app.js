@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
@@ -29,7 +29,12 @@ function updateTimer() {
   const diff = Date.now() - lastRefresh;
   const isExp = lastRefresh === 0 || diff >= 3600000;
   if($("buyBtn")) $("buyBtn").disabled = isExp || !curSym;
-  msgElem.textContent = isExp ? "시세 갱신 필요" : `거래 가능: ${Math.floor((3600000-diff)/60000)}분 ${Math.floor(((3600000-diff)%60000)/1000)}초`;
+  if (isExp) {
+    msgElem.textContent = "시세 갱신 필요";
+  } else {
+    const rem = 3600000 - diff;
+    msgElem.textContent = `거래 가능: ${Math.floor(rem/60000)}분 ${Math.floor((rem%60000)/1000)}초`;
+  }
 }
 setInterval(updateTimer, 1000);
 
@@ -102,7 +107,7 @@ async function refreshData() {
     if (!uSnap.exists()) return;
     const userData = uSnap.data();
 
-    // [수정] 상단 아이디 (닉네임) 표기
+    // 상단 아이디 (닉네임) 표기
     if($("userNickname")) {
       $("userNickname").textContent = `${user.email} (${userData.nickname || '사용자'})`;
     }
@@ -123,7 +128,7 @@ async function refreshData() {
       const val = price * d.qty; stockTotal += val;
       const buyP = d.price || price; 
       const profitRate = ((price - buyP) / buyP) * 100;
-      const color = profitRate >= 0 ? "var(--up)" : "var(--down)"; // 빨강(+) / 파랑(-)
+      const color = profitRate >= 0 ? "var(--up)" : "var(--down)"; 
       const sign = profitRate >= 0 ? "+" : "";
 
       pHtml += `
