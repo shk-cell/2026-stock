@@ -1,6 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, runTransaction, collection, getDocs, query, orderBy, limit, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+// [추가] 서버 함수 호출을 위해 필요한 기능
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCzjJDKMbzHjs7s7jMnfK64bbHEEmpyZxI",
@@ -14,6 +16,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+// [추가] 서버 함수 연동
+const functions = getFunctions(app);
+const tradeStock = httpsCallable(functions, 'tradeStock');
 
 const API = "https://quote-ymhlxyctxq-uc.a.run.app"; 
 const $ = (id) => document.getElementById(id);
@@ -22,164 +27,164 @@ const money = (v) => `$${Number(v || 0).toLocaleString(undefined, {minimumFracti
 let curPrice = 0, curSym = "", lastRefresh = 0;
 
 function updateTimer() {
-  const diff = Date.now() - lastRefresh;
-  const isExp = lastRefresh === 0 || diff >= 3600000;
-  document.querySelectorAll('#buyBtn, .btn-sell').forEach(b => b.disabled = isExp);
-  if (isExp) $("expireMsg").textContent = "시세 갱신 필요";
-  else {
-    const rem = 3600000 - diff;
-    $("expireMsg").textContent = `거래 가능: ${Math.floor(rem/60000)}분 ${Math.floor((rem%60000)/1000)}초`;
+  const now = Date.now();
+  const diff = Math.max(0, 30 - Math.floor((now - lastRefresh) / 1000));
+  $("timer").innerText = `새로고침: ${diff}초`;
+  if (diff <= 0) fetchQuote();
+}
+setInterval(updateTimer, 1000);
+
+async function fetchQuote() {
+  const sym = $("symInput").value.trim().toUpperCase();
+  if (!sym) return;
+  lastRefresh = Date.now();
+  $("qBtn").disabled = true;
+  try {
+    const res = await fetch(`${API}/quote?symbol=${sym}`);
+    const data = await res.json();
+    if (data.ok) {
+      curSym = data.symbol;
+      curPrice = data.price;
+      $("qResult").innerHTML = `
+        <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
+          <span class="font-bold text-lg">${curSym}</span>
+          <span class="text-blue-600 font-bold text-xl">${money(curPrice)}</span>
+        </div>
+      `;
+      $("buyBtn").classList.remove("hidden");
+    } else {
+      alert("종목을 찾을 수 없습니다.");
+    }
+  } catch (e) {
+    alert("시세 호출 실패");
+  } finally {
+    $("qBtn").disabled = false;
   }
 }
 
-async function fetchQuote() {
-  const s = $("qSymbol").value.trim().toUpperCase();
-  if(!s) return;
-  $("qBtn").textContent = "...";
-  try {
-    const res = await fetch(`${API}?symbol=${encodeURIComponent(s)}`);
-    const data = await res.json();
-    if(data.ok) {
-      let p = data.price;
-      if(s.endsWith(".KS") || s.endsWith(".KQ")) {
-        const exRes = await fetch(`${API}?symbol=USDKRW=X`);
-        const exData = await exRes.json();
-        if(exData.ok) p = data.price / exData.price;
-      }
-      curSym = data.symbol; curPrice = p;
-      $("qOutBox").style.display = "flex";
-      $("qSymbolText").textContent = curSym;
-      $("qPriceText").textContent = money(p);
-    } else alert("코드 확인");
-  } catch { alert("조회 실패"); }
-  finally { $("qBtn").textContent = "조회"; }
-}
-
+// [보안 강화] 매수 함수
 async function buyStock() {
-  const user = auth.currentUser; if(!user || !curSym || curPrice <= 0) return;
+  const user = auth.currentUser; 
+  if(!user || !curSym || curPrice <= 0) return;
   const qty = parseInt(prompt(`[${curSym}] 매수 수량:`, "1"));
   if(isNaN(qty) || qty <= 0) return;
 
+  $("buyBtn").disabled = true;
   try {
-    await runTransaction(db, async (tx) => {
-      const uRef = doc(db, "users", user.email);
-      const uSnap = await tx.get(uRef);
-      const cost = curPrice * qty;
-      if(uSnap.data().cash < cost) throw "현금 부족";
-      
-      const pRef = doc(db, "users", user.email, "portfolio", curSym);
-      const pSnap = await tx.get(pRef);
-      let nQty = qty, nAvg = curPrice;
-      if(pSnap.exists()) {
-        const d = pSnap.data();
-        nQty = d.qty + qty;
-        nAvg = ((d.avgPrice || d.lastPrice) * d.qty + cost) / nQty;
-      }
-      tx.update(uRef, { cash: uSnap.data().cash - cost });
-      tx.set(pRef, { qty: nQty, avgPrice: nAvg, lastPrice: curPrice }, { merge: true });
-      tx.set(doc(collection(db, "users", user.email, "history")), {
-        type: "매수", symbol: curSym, qty, price: curPrice, time: serverTimestamp()
-      });
+    // 이제 직접 DB를 수정하지 않고 서버 함수에 요청합니다.
+    const result = await tradeStock({
+      type: "BUY",
+      symbol: curSym,
+      qty: qty,
+      price: curPrice
     });
-    refreshData();
-  } catch(e) { alert(e); }
+
+    if(result.data.success) {
+      alert(`[${curSym}] ${qty}주 매수 완료!`);
+      refreshData();
+    }
+  } catch(e) { 
+    alert("매수 실패: " + e.message); 
+  } finally {
+    $("buyBtn").disabled = false;
+  }
 }
 
+// [보안 강화] 매도 함수
 async function sellStock(sym, currentPrice) {
   const user = auth.currentUser;
   const pRef = doc(db, "users", user.email, "portfolio", sym);
   const pSnap = await getDoc(pRef);
+  if(!pSnap.exists()) return;
+
   const mQty = pSnap.data().qty;
   const qty = parseInt(prompt(`[${sym}] 매도 수량 (보유:${mQty}):`, "1"));
   if(isNaN(qty) || qty <= 0 || qty > mQty) return;
 
   try {
-    await runTransaction(db, async (tx) => {
-      const uRef = doc(db, "users", user.email);
-      const uSnap = await tx.get(uRef);
-      tx.update(uRef, { cash: uSnap.data().cash + (currentPrice * qty) });
-      if(mQty === qty) tx.delete(pRef);
-      else tx.update(pRef, { qty: mQty - qty });
-      tx.set(doc(collection(db, "users", user.email, "history")), {
-        type: "매도", symbol: sym, qty, price: currentPrice, time: serverTimestamp()
-      });
+    // 이제 직접 DB를 수정하지 않고 서버 함수에 요청합니다.
+    const result = await tradeStock({
+      type: "SELL",
+      symbol: sym,
+      qty: qty,
+      price: currentPrice
     });
-    refreshData();
-  } catch(e) { alert(e); }
-}
-async function refreshData() {
-  const user = auth.currentUser; if(!user) return;
-  const uSnap = await getDoc(doc(db, "users", user.email));
-  const uData = uSnap.data();
-  if(!uData) return;
 
-  $("userNickname").textContent = uData.nickname || user.email.split('@')[0];
-  $("userEmail").textContent = user.email; 
-  $("cashText").textContent = money(uData.cash);
-  
-  let total = uData.cash;
-  const pSnap = await getDocs(collection(db, "users", user.email, "portfolio"));
-  let pHtml = "";
-  
-  // [수정 포인트] 각 종목별로 최신 시세를 가져와야 함
-  for (const d of pSnap.docs) {
-    const item = d.data();
-    const sym = d.id;
-    let cur = item.lastPrice; // 기본값은 저장된 가격
-
-    // 시세 업데이트 버튼을 눌러서 '거래 가능' 상태일 때만 실제 API 호출
-    const diff = Date.now() - lastRefresh;
-    if (lastRefresh !== 0 && diff < 3600000) {
-      try {
-        const res = await fetch(`${API}?symbol=${encodeURIComponent(sym)}`);
-        const data = await res.json();
-        if(data.ok) {
-          cur = data.price;
-          // 한국 주식일 경우 환율 적용
-          if(sym.endsWith(".KS") || sym.endsWith(".KQ")) {
-            const exRes = await fetch(`${API}?symbol=USDKRW=X`);
-            const exData = await exRes.json();
-            if(exData.ok) cur = data.price / exData.price;
-          }
-        }
-      } catch (e) { console.error(sym + " 시세 로드 실패"); }
+    if(result.data.success) {
+      alert(`[${sym}] ${qty}주 매도 완료!`);
+      refreshData();
     }
-
-    const avg = item.avgPrice || item.lastPrice;
-    const rate = ((cur - avg) / avg * 100).toFixed(2);
-    const color = rate > 0 ? "var(--up)" : (rate < 0 ? "var(--down)" : "var(--muted)");
-    const sign = rate > 0 ? "+" : ""; 
-    
-    total += (item.qty * cur);
-    
-    pHtml += `<div class="item-flex">
-      <div style="flex:1;">
-        <b style="font-size:15px;">${sym}</b> <small style="color:var(--muted)">${item.qty}주</small><br>
-        <span style="font-size:12px; color:var(--muted);">구매: ${money(avg)}</span> | 
-        <span style="font-size:12px; color:var(--warn);">현재: ${money(cur)}</span> | 
-        <span style="color:${color}; font-size:12px; font-weight:bold;">${sign}${rate}%</span>
-      </div>
-      <button onclick="window.sellStock('${sym}', ${cur})" class="btn btn-trade btn-sell">매도</button>
-    </div>`;
+  } catch(e) { 
+    alert("매도 실패: " + e.message); 
   }
-  
-  $("portfolioList").innerHTML = pHtml || "보유 없음";
-  $("totalAssetsText").textContent = money(total);
-  
-  // 총 자산 DB 업데이트
-  await setDoc(doc(db, "users", user.email), { totalAsset: total }, { merge: true });
+}
 
-  const rSnap = await getDocs(query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10)));
-  let rHtml = ""; let rank = 1;
-  rSnap.forEach(d => rHtml += `<div class="item-flex"><span>${rank++}. ${d.data().nickname || d.id.split('@')[0]}</span><b>${money(d.data().totalAsset)}</b></div>`);
+async function refreshData() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const uRef = doc(db, "users", user.email);
+  const uSnap = await getDoc(uRef);
+  if (!uSnap.exists()) return;
+  const userData = uSnap.data();
+
+  // 잔고 표시
+  $("userCash").innerText = money(userData.cash);
+
+  // 포트폴리오 & 내 자산 가치 계산
+  const pCol = collection(db, "users", user.email, "portfolio");
+  const pSnaps = await getDocs(pCol);
+  let pHtml = "", stockTotal = 0;
+
+  for (const s of pSnaps.docs) {
+    const d = s.data();
+    if (d.qty <= 0) continue;
+    try {
+      const res = await fetch(`${API}/quote?symbol=${s.id}`);
+      const quote = await res.json();
+      const price = quote.ok ? quote.price : 0;
+      const val = price * d.qty;
+      stockTotal += val;
+      pHtml += `
+        <div class="p-3 bg-white border rounded shadow-sm">
+          <div class="flex justify-between items-center mb-2">
+            <span class="font-bold">${s.id} (${d.qty}주)</span>
+            <span class="text-blue-600 font-semibold">${money(price)}</span>
+          </div>
+          <div class="flex justify-between items-center text-sm text-gray-500">
+            <span>평가금액: ${money(val)}</span>
+            <button onclick="sellStock('${s.id}', ${price})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition">매도</button>
+          </div>
+        </div>
+      `;
+    } catch (e) { console.error(e); }
+  }
+  $("portfolioList").innerHTML = pHtml || "보유 주식 없음";
+  
+  const finalTotalAsset = userData.cash + stockTotal;
+  $("totalAsset").innerText = money(finalTotalAsset);
+  await setDoc(uRef, { totalAsset: finalTotalAsset }, { merge: true });
+
+  // 랭킹 (Top 10)
+  const qRanking = query(collection(db, "users"), orderBy("totalAsset", "desc"), limit(10));
+  const rSnaps = await getDocs(qRanking);
+  let rHtml = "";
+  rSnaps.docs.forEach((d, i) => {
+    const data = d.data();
+    rHtml += `<div class="flex justify-between p-2 ${d.id === user.email ? 'bg-yellow-100 font-bold' : ''}">
+      <span>${i + 1}. ${data.nickname || d.id}</span>
+      <span>${money(data.totalAsset)}</span>
+    </div>`;
+  });
   $("rankingList").innerHTML = rHtml;
 
-  const hSnap = await getDocs(query(collection(db, "users", user.email, "history"), orderBy("time", "desc"), limit(10)));
+  // 거래 내역 (최근 10개)
+  const qHistory = query(collection(db, "users", user.email, "history"), orderBy("timestamp", "desc"), limit(10));
+  const hSnaps = await getDocs(qHistory);
   let hHtml = "";
-  hSnap.forEach(d => {
-    const h = d.data();
-    // [수정] 최근 거래내역에 '매수', '매도' 텍스트 명시
-    const typeLabel = h.type === '매수' ? '🔴 매수' : '🔵 매도';
+  hSnaps.docs.forEach(doc => {
+    const h = doc.data();
+    const typeLabel = h.type === 'BUY' ? '🔴 매수' : '🔵 매도';
     hHtml += `<div class="item-flex" style="font-size:12px;"><span>${typeLabel} ${h.symbol}</span><span>${h.qty}주 (${money(h.price)})</span></div>`;
   });
   $("transactionList").innerHTML = hHtml || "내역 없음";
@@ -204,21 +209,12 @@ onAuthStateChanged(auth, async (u) => {
         totalAsset: 70000,
         createdAt: serverTimestamp()
       });
-      console.log("새 유저 등록 완료 ($70,000 지급)");
     }
     $("authView").classList.add("hidden");
     $("dashView").classList.remove("hidden");
-
-    // [수정 포인트] 로그인 시 자동으로 시세 갱신 활성화
-    lastRefresh = Date.now(); // 현재 시간으로 갱신 시점 설정
-    refreshData();           // 시세 반영하여 데이터 로드
-    updateTimer();           // 타이머 작동 시작
-    
+    refreshData();
   } else {
     $("authView").classList.remove("hidden");
     $("dashView").classList.add("hidden");
-    lastRefresh = 0; // 로그아웃 시 초기화
   }
 });
-
-setInterval(updateTimer, 1000);
