@@ -17,6 +17,8 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 // app.js 상단
 const functions = getFunctions(app, "us-central1"); // 리전 명시
+// 지역이 서울(asia-northeast3)인 경우
+const functions = getFunctions(app, "asia-northeast3");
 const tradeStock = httpsCallable(functions, 'tradeStock');
 
 const API = "https://quote-ymhlxyctxq-uc.a.run.app"; 
