@@ -15,7 +15,7 @@
       --warn: #ffd479; 
       --up: #ff4d4d; 
       --down: #4d94ff; 
-      --zero: #888888; /* 0%일 때 사용할 회색 */
+      --zero: #888888;
     }
     * { box-sizing: border-box; }
     body { 
@@ -74,11 +74,13 @@
         <h1>부평중학교 모의투자</h1>
         <div id="notice-box" style="background: rgba(43, 124, 255, 0.08); border: 1px solid rgba(43, 124, 255, 0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; font-size: 13px; line-height: 1.7; color: var(--txt);">
           <h3 style="margin-top: 0; color: var(--pri); font-size: 16px;">📢 필독: 모의투자 운영 안내 및 교육 취지</h3>
-          <p style="margin: 8px 0 16px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">이 플랫폼은 교육용 플랫폼입니다.</p>
+          <p style="margin: 8px 0 16px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">이 플랫폼은 여러분이 건전한 금융 지식을 쌓고 세상의 흐름을 읽는 눈을 기르기 위해 제작된 <b>교육용 플랫폼</b>입니다.</p>
           <ul style="list-style: none; padding: 0; margin: 0;">
-            <li style="margin-bottom: 10px;"><b>1. 순수 교육용 플랫폼:</b> 도박이나 사행성 게임이 아닙니다.</li>
-            <li style="margin-bottom: 10px;"><b>2. 초기 자금:</b> 가상 머니 <b>7만 달러($70,000)</b> 지급.</li>
-            <li style="margin-bottom: 10px;"><b>3. 증시 시간:</b> 🇺🇸 23:30~06:00 | 🇰🇷 09:00~15:30</li>
+            <li style="margin-bottom: 10px;"><b>1. 순수 교육용 플랫폼:</b> 도박이나 사행성 게임이 아니며, 실제 투자를 종용하거나 부추기지 않습니다.</li>
+            <li style="margin-bottom: 10px;"><b>2. 경쟁보다는 학습:</b> 수익률 경쟁보다 기업 가치 변화의 원인을 분석하는 <b>'과정'</b>에 의미를 두시기 바랍니다.</li>
+            <li style="margin-bottom: 10px;"><b>3. 데이터 기반 분석:</b> 감이 아닌 유튜브, 뉴스, <b>AI(ChatGPT, 제미나이)</b> 등을 활용해 스스로 정보를 판단하세요.</li>
+            <li style="margin-bottom: 10px;"><b>4. 초기 자금:</b> 학습용 가상 머니 <b>7만 달러($70,000)</b>가 지급됩니다.</li>
+            <li style="margin-bottom: 10px;"><b>5. 증시 운영 시간:</b><br>🇺🇸 미국: 23:30 ~ 06:00 | 🇰🇷 한국: 09:00 ~ 15:30</li>
           </ul>
         </div>
         <input id="email" type="email" placeholder="이메일" style="margin-bottom:8px;" />
@@ -114,8 +116,13 @@
           <div style="color:var(--pri); font-weight:bold; margin-bottom:8px; border-bottom:1px solid var(--line); padding-bottom:5px;">
             ※ 한국주식은 현재 원화환율을 반영하여 자동으로 달러가격으로 전환됩니다.
           </div>
-          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 (예: AAPL, TSLA)<br>
-          <b>🇰🇷 한국 주식:</b> 코드 뒤에 <b>.KS / .KQ</b> (예: 005930.KS)
+          <b>🇺🇸 미국 주식:</b> 종목코드 그대로 입력<br>
+          - 예: 애플: <b>AAPL</b>, 테슬라: <b>TSLA</b>, 엔비디아: <b>NVDA</b><br>
+          <span style="color:var(--warn); font-size: 11px;">※ 미 증시 개장: 23:30 ~ 06:00 (한국시간)</span><br><br>
+
+          <b>🇰🇷 한국 주식:</b> 종목코드 뒤에 <b>.KS / .KQ</b> 붙이기<br>
+          - 예: 삼성전자: <b>005930.KS</b>, 에코프로: <b>086520.KQ</b><br>
+          <span style="color:var(--warn); font-size: 11px;">※ 한 증시 개장: 09:00 ~ 15:30 (평일)</span>
         </div>
 
         <div id="qOutBox">
