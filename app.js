@@ -98,6 +98,11 @@ async function sellStock(sym, currentPrice) {
 async function refreshData() {
   const user = auth.currentUser; if (!user) return;
   try {
+    
+    const rate = await getExchangeRate();
+    if($("currentRateText")) {
+      $("currentRateText").textContent = `(현재 환율: ${rate.toLocaleString()}원)`;
+      
     const uSnap = await getDoc(doc(db, "users", user.email));
     if (!uSnap.exists()) return;
     const userData = uSnap.data();
