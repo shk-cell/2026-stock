@@ -206,7 +206,7 @@ async function refreshData() {
     // 3. 총 자산 업데이트
     const total = (userData.cash || 0) + stockTotal;
     if($("totalAssetsText")) $("totalAssetsText").textContent = money(total);
-    await setDoc(userRef, { totalAsset: total }, { merge: true });
+    //await setDoc(userRef, { totalAsset: total }, { merge: true });
 
     // 4. 랭킹 및 거래 내역 업데이트
     await updateRankingAndHistory(user.email);
